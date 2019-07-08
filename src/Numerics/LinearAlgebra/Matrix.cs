@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -28,11 +27,14 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-using MathNet.Numerics.LinearAlgebra.Storage;
-using MathNet.Numerics.Properties;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime;
+using System.Runtime.CompilerServices;
+using MathNet.Numerics.LinearAlgebra.Storage;
+using MathNet.Numerics.Properties;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.LinearAlgebra
 {
@@ -43,7 +45,7 @@ namespace MathNet.Numerics.LinearAlgebra
     [Serializable]
     public abstract partial class Matrix<T> :
         IFormattable, IEquatable<Matrix<T>>
-#if !PORTABLE
+#if !NETSTANDARD1_3
         , ICloneable
 #endif
         where T : struct, IEquatable<T>, IFormattable
@@ -91,12 +93,16 @@ namespace MathNet.Numerics.LinearAlgebra
         /// to get and set values without range checking.</remarks>
         public T this[int row, int column]
         {
+#if !NET40
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             [TargetedPatchingOptOut("Performance critical to inline across NGen image boundaries")]
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)] .Net 4.5 only
             get { return Storage[row, column]; }
 
+#if !NET40
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             [TargetedPatchingOptOut("Performance critical to inline across NGen image boundaries")]
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)] .Net 4.5 only
             set { Storage[row, column] = value; }
         }
 
@@ -112,8 +118,10 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <returns>
         /// The requested element.
         /// </returns>
+#if !NET40
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         [TargetedPatchingOptOut("Performance critical to inline across NGen image boundaries")]
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)] .Net 4.5 only
         public T At(int row, int column)
         {
             return Storage.At(row, column);
@@ -131,8 +139,10 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <param name="value">
         /// The value to set the element to.
         /// </param>
+#if !NET40
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         [TargetedPatchingOptOut("Performance critical to inline across NGen image boundaries")]
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)] .Net 4.5 only
         public void At(int row, int column, T value)
         {
             Storage.At(row, column, value);
@@ -147,57 +157,66 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Sets all values of a column to zero.
-        /// </summary>
-        public void ClearColumn(int columnIndex)
-        {
-            if (columnIndex < 0 || columnIndex >= ColumnCount)
-            {
-                throw new ArgumentOutOfRangeException("columnIndex");
-            }
-
-            Storage.Clear(0, RowCount, columnIndex, 1);
-        }
-
-        /// <summary>
         /// Sets all values of a row to zero.
         /// </summary>
         public void ClearRow(int rowIndex)
         {
-            if (rowIndex < 0 || rowIndex >= RowCount)
+            if ((uint)rowIndex >= (uint)RowCount)
             {
-                throw new ArgumentOutOfRangeException("rowIndex");
+                throw new ArgumentOutOfRangeException(nameof(rowIndex));
             }
 
-            Storage.Clear(rowIndex, 1, 0, ColumnCount);
+            Storage.ClearUnchecked(rowIndex, 1, 0, ColumnCount);
         }
 
         /// <summary>
-        /// Sets all values of a submatrix to zero.
+        /// Sets all values of a column to zero.
+        /// </summary>
+        public void ClearColumn(int columnIndex)
+        {
+            if ((uint)columnIndex >= (uint)ColumnCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(columnIndex));
+            }
+
+            Storage.ClearUnchecked(0, RowCount, columnIndex, 1);
+        }
+
+        /// <summary>
+        /// Sets all values for all of the chosen rows to zero.
+        /// </summary>
+        public void ClearRows(params int[] rowIndices)
+        {
+            Storage.ClearRows(rowIndices);
+        }
+
+        /// <summary>
+        /// Sets all values for all of the chosen columns to zero.
+        /// </summary>
+        public void ClearColumns(params int[] columnIndices)
+        {
+            Storage.ClearColumns(columnIndices);
+        }
+
+        /// <summary>
+        /// Sets all values of a sub-matrix to zero.
         /// </summary>
         public void ClearSubMatrix(int rowIndex, int rowCount, int columnIndex, int columnCount)
         {
-            if (rowCount < 1)
-            {
-                throw new ArgumentOutOfRangeException("rowCount", Resources.ArgumentMustBePositive);
-            }
-
-            if (columnCount < 1)
-            {
-                throw new ArgumentOutOfRangeException("columnCount", Resources.ArgumentMustBePositive);
-            }
-
-            if (rowIndex + rowCount > RowCount || rowIndex < 0)
-            {
-                throw new ArgumentOutOfRangeException("rowIndex");
-            }
-
-            if (columnIndex + columnCount > ColumnCount || columnIndex < 0)
-            {
-                throw new ArgumentOutOfRangeException("columnIndex");
-            }
-
             Storage.Clear(rowIndex, rowCount, columnIndex, columnCount);
+        }
+
+        /// <summary>
+        /// Set all values whose absolute value is smaller than the threshold to zero, in-place.
+        /// </summary>
+        public abstract void CoerceZero(double threshold);
+
+        /// <summary>
+        /// Set all values that meet the predicate to zero, in-place.
+        /// </summary>
+        public void CoerceZero(Func<T, bool> zeroPredicate)
+        {
+            MapInplace(x => zeroPredicate(x) ? Zero : x, Zeros.AllowSkip);
         }
 
         /// <summary>
@@ -208,8 +227,8 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </returns>
         public Matrix<T> Clone()
         {
-            var result = CreateMatrix(RowCount, ColumnCount);
-            Storage.CopyToUnchecked(result.Storage, skipClearing: true);
+            var result = Build.SameAs(this);
+            Storage.CopyToUnchecked(result.Storage, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -229,35 +248,10 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
             }
 
             Storage.CopyTo(target.Storage);
-        }
-
-        /// <summary>
-        /// Create a matrix of the same kind for the given number of rows and columns.
-        /// </summary>
-        /// <param name="rows">The number of rows.</param>
-        /// <param name="columns">The number of columns.</param>
-        /// <remarks>Creates a matrix of the same matrix type as the current matrix.</remarks>
-        public Matrix<T> CreateMatrix(int rows, int columns)
-        {
-            return Storage.IsDense
-                ? Build.Dense(rows, columns)
-                : Build.Sparse(rows, columns);
-        }
-
-        /// <summary>
-        /// Create a vector of the same kind with the given size.
-        /// </summary>
-        /// <param name="size">The size of the vector.</param>
-        /// <remarks>Creates a vector of the same type as the current matrix.</remarks>
-        public Vector<T> CreateVector(int size)
-        {
-            return Storage.IsDense
-                ? Vector<T>.Build.Dense(size)
-                : Vector<T>.Build.Sparse(size);
         }
 
         /// <summary>
@@ -269,13 +263,13 @@ namespace MathNet.Numerics.LinearAlgebra
         /// or greater than or equal to the number of rows.</exception>
         public Vector<T> Row(int index)
         {
-            if (index >= RowCount || index < 0)
+            if ((uint)index >= (uint)RowCount)
             {
-                throw new ArgumentOutOfRangeException("index");
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            var ret = CreateVector(ColumnCount);
-            Storage.CopySubRowToUnchecked(ret.Storage, index, 0, 0, ColumnCount);
+            var ret = Vector<T>.Build.SameAs(this, ColumnCount);
+            Storage.CopySubRowToUnchecked(ret.Storage, index, 0, 0, ColumnCount, ExistingData.AssumeZeros);
             return ret;
         }
 
@@ -292,7 +286,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             Storage.CopyRowTo(result.Storage, index);
@@ -314,7 +308,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentOutOfRangeException">If <paramref name="length"/> is not positive.</exception>
         public Vector<T> Row(int rowIndex, int columnIndex, int length)
         {
-            var ret = CreateVector(length);
+            var ret = Vector<T>.Build.SameAs(this, length);
             Storage.CopySubRowTo(ret.Storage, rowIndex, columnIndex, 0, length);
             return ret;
         }
@@ -339,7 +333,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             Storage.CopySubRowTo(result.Storage, rowIndex, columnIndex, 0, length);
@@ -354,13 +348,13 @@ namespace MathNet.Numerics.LinearAlgebra
         /// or greater than or equal to the number of columns.</exception>
         public Vector<T> Column(int index)
         {
-            if (index >= ColumnCount || index < 0)
+            if ((uint)index >= (uint)ColumnCount)
             {
-                throw new ArgumentOutOfRangeException("index");
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            var ret = CreateVector(RowCount);
-            Storage.CopySubColumnToUnchecked(ret.Storage, index, 0, 0, RowCount);
+            var ret = Vector<T>.Build.SameAs(this, RowCount);
+            Storage.CopySubColumnToUnchecked(ret.Storage, index, 0, 0, RowCount, ExistingData.AssumeZeros);
             return ret;
         }
 
@@ -377,7 +371,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             Storage.CopyColumnTo(result.Storage, index);
@@ -400,7 +394,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentOutOfRangeException">If <paramref name="length"/> is not positive.</exception>
         public Vector<T> Column(int columnIndex, int rowIndex, int length)
         {
-            var ret = CreateVector(length);
+            var ret = Vector<T>.Build.SameAs(this, length);
             Storage.CopySubColumnTo(ret.Storage, columnIndex, rowIndex, 0, length);
             return ret;
         }
@@ -425,7 +419,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             Storage.CopySubColumnTo(result.Storage, columnIndex, rowIndex, 0, length);
@@ -437,17 +431,15 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <returns>The upper triangle of this matrix.</returns>
         public virtual Matrix<T> UpperTriangle()
         {
-            var ret = CreateMatrix(RowCount, ColumnCount);
-
+            var result = Build.SameAs(this);
             for (var row = 0; row < RowCount; row++)
             {
                 for (var column = row; column < ColumnCount; column++)
                 {
-                    ret.At(row, column, At(row, column));
+                    result.At(row, column, At(row, column));
                 }
             }
-
-            return ret;
+            return result;
         }
 
         /// <summary>
@@ -456,17 +448,15 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <returns>The lower triangle of this matrix.</returns>
         public virtual Matrix<T> LowerTriangle()
         {
-            var ret = CreateMatrix(RowCount, ColumnCount);
-
+            var result = Build.SameAs(this);
             for (var row = 0; row < RowCount; row++)
             {
                 for (var column = 0; column <= row && column < ColumnCount; column++)
                 {
-                    ret.At(row, column, At(row, column));
+                    result.At(row, column, At(row, column));
                 }
             }
-
-            return ret;
+            return result;
         }
 
         /// <summary>
@@ -479,7 +469,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != RowCount || result.ColumnCount != ColumnCount)
@@ -506,7 +496,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != RowCount || result.ColumnCount != ColumnCount)
@@ -541,9 +531,9 @@ namespace MathNet.Numerics.LinearAlgebra
         /// is not positive.</exception>
         public virtual Matrix<T> SubMatrix(int rowIndex, int rowCount, int columnIndex, int columnCount)
         {
-            var target = CreateMatrix(rowCount, columnCount);
-            Storage.CopySubMatrixTo(target.Storage, rowIndex, 0, rowCount, columnIndex, 0, columnCount, skipClearing: true);
-            return target;
+            var result = Build.SameAs(this, rowCount, columnCount);
+            Storage.CopySubMatrixTo(result.Storage, rowIndex, 0, rowCount, columnIndex, 0, columnCount, ExistingData.AssumeZeros);
+            return result;
         }
 
         /// <summary>
@@ -555,7 +545,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public virtual Vector<T> Diagonal()
         {
             var min = Math.Min(RowCount, ColumnCount);
-            var diagonal = CreateVector(min);
+            var diagonal = Vector<T>.Build.SameAs(this, min);
 
             for (var i = 0; i < min; i++)
             {
@@ -572,16 +562,15 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <returns>The lower triangle of this matrix.</returns>
         public virtual Matrix<T> StrictlyLowerTriangle()
         {
-            var result = CreateMatrix(RowCount, ColumnCount);
-
+            var result = Build.SameAs(this);
             for (var row = 0; row < RowCount; row++)
             {
-                for (var column = 0; column < row; column++)
+                var columns = Math.Min(row, ColumnCount);
+                for (var column = 0; column < columns; column++)
                 {
                     result.At(row, column, At(row, column));
                 }
             }
-
             return result;
         }
 
@@ -595,7 +584,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != RowCount || result.ColumnCount != ColumnCount)
@@ -619,8 +608,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <returns>The upper triangle of this matrix.</returns>
         public virtual Matrix<T> StrictlyUpperTriangle()
         {
-            var result = CreateMatrix(RowCount, ColumnCount);
-
+            var result = Build.SameAs(this);
             for (var row = 0; row < RowCount; row++)
             {
                 for (var column = row + 1; column < ColumnCount; column++)
@@ -628,7 +616,6 @@ namespace MathNet.Numerics.LinearAlgebra
                     result.At(row, column, At(row, column));
                 }
             }
-
             return result;
         }
 
@@ -642,7 +629,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != RowCount || result.ColumnCount != ColumnCount)
@@ -668,37 +655,46 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentNullException">If <paramref name="column "/> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentOutOfRangeException">If <paramref name="columnIndex"/> is &lt; zero or &gt; the number of columns.</exception>
         /// <exception cref="ArgumentException">If the size of <paramref name="column"/> != the number of rows.</exception>
-        public virtual Matrix<T> InsertColumn(int columnIndex, Vector<T> column)
+        public Matrix<T> InsertColumn(int columnIndex, Vector<T> column)
         {
             if (column == null)
             {
-                throw new ArgumentNullException("column");
+                throw new ArgumentNullException(nameof(column));
             }
 
-            if (columnIndex < 0 || columnIndex > ColumnCount)
+            if ((uint)columnIndex > (uint)ColumnCount)
             {
-                throw new ArgumentOutOfRangeException("columnIndex");
+                throw new ArgumentOutOfRangeException(nameof(columnIndex));
             }
 
             if (column.Count != RowCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSameRowDimension, "column");
+                throw new ArgumentException(Resources.ArgumentMatrixSameRowDimension, nameof(column));
             }
 
-            var result = CreateMatrix(RowCount, ColumnCount + 1);
-
-            for (var i = 0; i < columnIndex; i++)
-            {
-                result.SetColumn(i, Column(i));
-            }
-
+            var result = Build.SameAs(this, RowCount, ColumnCount + 1, fullyMutable: true);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, RowCount, 0, 0, columnIndex, ExistingData.AssumeZeros);
             result.SetColumn(columnIndex, column);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, RowCount, columnIndex, columnIndex + 1, ColumnCount - columnIndex, ExistingData.AssumeZeros);
+            return result;
+        }
 
-            for (var i = columnIndex + 1; i < ColumnCount + 1; i++)
+        /// <summary>
+        /// Creates a new matrix with the given column removed.
+        /// </summary>
+        /// <param name="columnIndex">The index of the column to remove.</param>
+        /// <returns>A new matrix without the chosen column.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If <paramref name="columnIndex"/> is &lt; zero or &gt;= the number of columns.</exception>
+        public Matrix<T> RemoveColumn(int columnIndex)
+        {
+            if ((uint)columnIndex >= (uint)ColumnCount)
             {
-                result.SetColumn(i, Column(i - 1));
+                throw new ArgumentOutOfRangeException(nameof(columnIndex));
             }
 
+            var result = Build.SameAs(this, RowCount, ColumnCount - 1, fullyMutable: true);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, RowCount, 0, 0, columnIndex, ExistingData.AssumeZeros);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, RowCount, columnIndex + 1, columnIndex, ColumnCount - columnIndex - 1, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -716,7 +712,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (column == null)
             {
-                throw new ArgumentNullException("column");
+                throw new ArgumentNullException(nameof(column));
             }
 
             column.Storage.CopyToColumn(Storage, columnIndex);
@@ -738,7 +734,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (column == null)
             {
-                throw new ArgumentNullException("column");
+                throw new ArgumentNullException(nameof(column));
             }
 
             column.Storage.CopyToSubColumn(Storage, columnIndex, 0, rowIndex, length);
@@ -760,7 +756,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (column == null)
             {
-                throw new ArgumentNullException("column");
+                throw new ArgumentNullException(nameof(column));
             }
 
             new DenseVectorStorage<T>(column.Length, column).CopyToColumn(Storage, columnIndex);
@@ -775,37 +771,46 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentNullException">If <paramref name="row"/> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentOutOfRangeException">If <paramref name="rowIndex"/> is &lt; zero or &gt; the number of rows.</exception>
         /// <exception cref="ArgumentException">If the size of <paramref name="row"/> != the number of columns.</exception>
-        public virtual Matrix<T> InsertRow(int rowIndex, Vector<T> row)
+        public Matrix<T> InsertRow(int rowIndex, Vector<T> row)
         {
             if (row == null)
             {
-                throw new ArgumentNullException("row");
+                throw new ArgumentNullException(nameof(row));
             }
 
-            if (rowIndex < 0 || rowIndex > RowCount)
+            if ((uint)rowIndex > (uint)RowCount)
             {
-                throw new ArgumentOutOfRangeException("rowIndex");
+                throw new ArgumentOutOfRangeException(nameof(rowIndex));
             }
 
             if (row.Count != ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSameRowDimension, "row");
+                throw new ArgumentException(Resources.ArgumentMatrixSameRowDimension, nameof(row));
             }
 
-            var result = CreateMatrix(RowCount + 1, ColumnCount);
-
-            for (var i = 0; i < rowIndex; i++)
-            {
-                result.SetRow(i, Row(i));
-            }
-
+            var result = Build.SameAs(this, RowCount + 1, ColumnCount, fullyMutable: true);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, rowIndex, 0, 0, ColumnCount, ExistingData.AssumeZeros);
             result.SetRow(rowIndex, row);
+            Storage.CopySubMatrixTo(result.Storage, rowIndex, rowIndex+1, RowCount - rowIndex, 0, 0, ColumnCount, ExistingData.AssumeZeros);
+            return result;
+        }
 
-            for (var i = rowIndex + 1; i < RowCount + 1; i++)
+        /// <summary>
+        /// Creates a new matrix with the given row removed.
+        /// </summary>
+        /// <param name="rowIndex">The index of the row to remove.</param>
+        /// <returns>A new matrix without the chosen row.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If <paramref name="rowIndex"/> is &lt; zero or &gt;= the number of rows.</exception>
+        public Matrix<T> RemoveRow(int rowIndex)
+        {
+            if ((uint)rowIndex >= (uint)RowCount)
             {
-                result.SetRow(i, Row(i - 1));
+                throw new ArgumentOutOfRangeException(nameof(rowIndex));
             }
 
+            var result = Build.SameAs(this, RowCount - 1, ColumnCount, fullyMutable: true);
+            Storage.CopySubMatrixTo(result.Storage, 0, 0, rowIndex, 0, 0, ColumnCount, ExistingData.AssumeZeros);
+            Storage.CopySubMatrixTo(result.Storage, rowIndex + 1, rowIndex, RowCount - rowIndex - 1, 0, 0, ColumnCount, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -823,7 +828,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (row == null)
             {
-                throw new ArgumentNullException("row");
+                throw new ArgumentNullException(nameof(row));
             }
 
             row.Storage.CopyToRow(Storage, rowIndex);
@@ -845,7 +850,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (row == null)
             {
-                throw new ArgumentNullException("row");
+                throw new ArgumentNullException(nameof(row));
             }
 
             row.Storage.CopyToSubRow(Storage, rowIndex, 0, columnIndex, length);
@@ -866,10 +871,27 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (row == null)
             {
-                throw new ArgumentNullException("row");
+                throw new ArgumentNullException(nameof(row));
             }
 
             new DenseVectorStorage<T>(row.Length, row).CopyToRow(Storage, rowIndex);
+        }
+
+        /// <summary>
+        /// Copies the values of a given matrix into a region in this matrix.
+        /// </summary>
+        /// <param name="rowIndex">The row to start copying to.</param>
+        /// <param name="columnIndex">The column to start copying to.</param>
+        /// <param name="subMatrix">The sub-matrix to copy from.</param>
+        /// <exception cref="ArgumentOutOfRangeException">If: <list><item><paramref name="rowIndex"/> is
+        /// negative, or greater than or equal to the number of rows.</item>
+        /// <item><paramref name="columnIndex"/> is negative, or greater than or equal to the number
+        /// of columns.</item>
+        /// <item><c>(columnIndex + columnLength) &gt;= Columns</c></item>
+        /// <item><c>(rowIndex + rowLength) &gt;= Rows</c></item></list></exception>
+        public void SetSubMatrix(int rowIndex, int columnIndex, Matrix<T> subMatrix)
+        {
+            subMatrix.Storage.CopySubMatrixTo(Storage, 0, rowIndex, subMatrix.RowCount, 0, columnIndex, subMatrix.ColumnCount);
         }
 
         /// <summary>
@@ -886,18 +908,36 @@ namespace MathNet.Numerics.LinearAlgebra
         /// of columns.</item>
         /// <item><c>(columnIndex + columnLength) &gt;= Columns</c></item>
         /// <item><c>(rowIndex + rowLength) &gt;= Rows</c></item></list></exception>
-        /// <exception cref="ArgumentNullException">If <paramref name="subMatrix"/> is <see langword="null" /></exception>
         /// <item>the size of <paramref name="subMatrix"/> is not at least <paramref name="rowCount"/> x <paramref name="columnCount"/>.</item>
         /// <exception cref="ArgumentOutOfRangeException">If <paramref name="rowCount"/> or <paramref name="columnCount"/>
         /// is not positive.</exception>
         public void SetSubMatrix(int rowIndex, int rowCount, int columnIndex, int columnCount, Matrix<T> subMatrix)
         {
-            if (subMatrix == null)
-            {
-                throw new ArgumentNullException("subMatrix");
-            }
-
             subMatrix.Storage.CopySubMatrixTo(Storage, 0, rowIndex, rowCount, 0, columnIndex, columnCount);
+        }
+
+        /// <summary>
+        /// Copies the values of a given matrix into a region in this matrix.
+        /// </summary>
+        /// <param name="rowIndex">The row to start copying to.</param>
+        /// <param name="sorceRowIndex">The row of the sub-matrix to start copying from.</param>
+        /// <param name="rowCount">The number of rows to copy. Must be positive.</param>
+        /// <param name="columnIndex">The column to start copying to.</param>
+        /// <param name="sourceColumnIndex">The column of the sub-matrix to start copying from.</param>
+        /// <param name="columnCount">The number of columns to copy. Must be positive.</param>
+        /// <param name="subMatrix">The sub-matrix to copy from.</param>
+        /// <exception cref="ArgumentOutOfRangeException">If: <list><item><paramref name="rowIndex"/> is
+        /// negative, or greater than or equal to the number of rows.</item>
+        /// <item><paramref name="columnIndex"/> is negative, or greater than or equal to the number
+        /// of columns.</item>
+        /// <item><c>(columnIndex + columnLength) &gt;= Columns</c></item>
+        /// <item><c>(rowIndex + rowLength) &gt;= Rows</c></item></list></exception>
+        /// <item>the size of <paramref name="subMatrix"/> is not at least <paramref name="rowCount"/> x <paramref name="columnCount"/>.</item>
+        /// <exception cref="ArgumentOutOfRangeException">If <paramref name="rowCount"/> or <paramref name="columnCount"/>
+        /// is not positive.</exception>
+        public void SetSubMatrix(int rowIndex, int sorceRowIndex, int rowCount, int columnIndex, int sourceColumnIndex, int columnCount, Matrix<T> subMatrix)
+        {
+            subMatrix.Storage.CopySubMatrixTo(Storage, sorceRowIndex, rowIndex, rowCount, sourceColumnIndex, columnIndex, columnCount);
         }
 
         /// <summary>
@@ -914,14 +954,14 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (source == null)
             {
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
             }
 
             var min = Math.Min(RowCount, ColumnCount);
 
             if (source.Count != min)
             {
-                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "source");
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(source));
             }
 
             for (var i = 0; i < min; i++)
@@ -944,14 +984,14 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (source == null)
             {
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
             }
 
             var min = Math.Min(RowCount, ColumnCount);
 
             if (source.Length != min)
             {
-                throw new ArgumentException(Resources.ArgumentArraysSameLength, "source");
+                throw new ArgumentException(Resources.ArgumentArraysSameLength, nameof(source));
             }
 
             for (var i = 0; i < min; i++)
@@ -964,18 +1004,19 @@ namespace MathNet.Numerics.LinearAlgebra
         /// Returns the transpose of this matrix.
         /// </summary>
         /// <returns>The transpose of this matrix.</returns>
-        public virtual Matrix<T> Transpose()
+        public Matrix<T> Transpose()
         {
-            var ret = CreateMatrix(ColumnCount, RowCount);
-            for (var j = 0; j < ColumnCount; j++)
-            {
-                for (var i = 0; i < RowCount; i++)
-                {
-                    ret.At(j, i, At(i, j));
-                }
-            }
+            var result = Build.SameAs(this, ColumnCount, RowCount);
+            Storage.TransposeToUnchecked(result.Storage, ExistingData.AssumeZeros);
+            return result;
+        }
 
-            return ret;
+        /// <summary>
+        /// Puts the transpose of this matrix into the result matrix.
+        /// </summary>
+        public void Transpose(Matrix<T> result)
+        {
+            Storage.TransposeTo(result.Storage, ExistingData.Clear);
         }
 
         /// <summary>
@@ -985,6 +1026,11 @@ namespace MathNet.Numerics.LinearAlgebra
         public abstract Matrix<T> ConjugateTranspose();
 
         /// <summary>
+        /// Puts the conjugate transpose of this matrix into the result matrix.
+        /// </summary>
+        public abstract void ConjugateTranspose(Matrix<T> result);
+
+        /// <summary>
         /// Permute the rows of a matrix according to a permutation.
         /// </summary>
         /// <param name="p">The row permutation to apply to this matrix.</param>
@@ -992,7 +1038,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (p.Dimension != RowCount)
             {
-                throw new ArgumentException(Resources.ArgumentArraysSameLength, "p");
+                throw new ArgumentException(Resources.ArgumentArraysSameLength, nameof(p));
             }
 
             // Get a sequence of inversions from the permutation.
@@ -1021,7 +1067,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (p.Dimension != ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentArraysSameLength, "p");
+                throw new ArgumentException(Resources.ArgumentArraysSameLength, nameof(p));
             }
 
             // Get a sequence of inversions from the permutation.
@@ -1053,7 +1099,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (right == null)
             {
-                throw new ArgumentNullException("right");
+                throw new ArgumentNullException(nameof(right));
             }
 
             if (right.RowCount != RowCount)
@@ -1061,9 +1107,9 @@ namespace MathNet.Numerics.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentMatrixSameRowDimension);
             }
 
-            var result = CreateMatrix(RowCount, ColumnCount + right.ColumnCount);
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, skipClearing: true);
-            right.Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, right.RowCount, 0, ColumnCount, right.ColumnCount, skipClearing: true);
+            var result = Build.SameAs(this, right, RowCount, ColumnCount + right.ColumnCount, fullyMutable: true);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.AssumeZeros);
+            right.Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, right.RowCount, 0, ColumnCount, right.ColumnCount, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -1078,7 +1124,7 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (right == null)
             {
-                throw new ArgumentNullException("right");
+                throw new ArgumentNullException(nameof(right));
             }
 
             if (right.RowCount != RowCount)
@@ -1088,7 +1134,7 @@ namespace MathNet.Numerics.LinearAlgebra
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.ColumnCount != (ColumnCount + right.ColumnCount) || result.RowCount != RowCount)
@@ -1096,8 +1142,8 @@ namespace MathNet.Numerics.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentMatrixSameColumnDimension);
             }
 
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount);
-            right.Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, right.RowCount, 0, ColumnCount, right.ColumnCount);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.Clear);
+            right.Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, right.RowCount, 0, ColumnCount, right.ColumnCount, ExistingData.Clear);
         }
 
         /// <summary>
@@ -1113,17 +1159,17 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (lower == null)
             {
-                throw new ArgumentNullException("lower");
+                throw new ArgumentNullException(nameof(lower));
             }
 
             if (lower.ColumnCount != ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSameColumnDimension, "lower");
+                throw new ArgumentException(Resources.ArgumentMatrixSameColumnDimension, nameof(lower));
             }
 
-            var result = CreateMatrix(RowCount + lower.RowCount, ColumnCount);
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, skipClearing: true);
-            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, 0, lower.ColumnCount, skipClearing: true);
+            var result = Build.SameAs(this, lower, RowCount + lower.RowCount, ColumnCount, fullyMutable: true);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.AssumeZeros);
+            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, 0, lower.ColumnCount, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -1140,17 +1186,17 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (lower == null)
             {
-                throw new ArgumentNullException("lower");
+                throw new ArgumentNullException(nameof(lower));
             }
 
             if (lower.ColumnCount != ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSameColumnDimension, "lower");
+                throw new ArgumentException(Resources.ArgumentMatrixSameColumnDimension, nameof(lower));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != (RowCount + lower.RowCount) || result.ColumnCount != ColumnCount)
@@ -1158,8 +1204,8 @@ namespace MathNet.Numerics.LinearAlgebra
                 throw DimensionsDontMatch<ArgumentException>(this, result, "result");
             }
 
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount);
-            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, 0, lower.ColumnCount);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.Clear);
+            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, 0, lower.ColumnCount, ExistingData.Clear);
         }
 
         /// <summary>
@@ -1176,12 +1222,12 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (lower == null)
             {
-                throw new ArgumentNullException("lower");
+                throw new ArgumentNullException(nameof(lower));
             }
 
-            var result = CreateMatrix(RowCount + lower.RowCount, ColumnCount + lower.ColumnCount);
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount);
-            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, ColumnCount, lower.ColumnCount);
+            var result = Build.SameAs(this, lower, RowCount + lower.RowCount, ColumnCount + lower.ColumnCount, RowCount != ColumnCount);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.AssumeZeros);
+            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, ColumnCount, lower.ColumnCount, ExistingData.AssumeZeros);
             return result;
         }
 
@@ -1199,12 +1245,12 @@ namespace MathNet.Numerics.LinearAlgebra
         {
             if (lower == null)
             {
-                throw new ArgumentNullException("lower");
+                throw new ArgumentNullException(nameof(lower));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             if (result.RowCount != RowCount + lower.RowCount || result.ColumnCount != ColumnCount + lower.ColumnCount)
@@ -1212,60 +1258,43 @@ namespace MathNet.Numerics.LinearAlgebra
                 throw DimensionsDontMatch<ArgumentException>(this, result, "result");
             }
 
-            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount);
-            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, ColumnCount, lower.ColumnCount);
+            Storage.CopySubMatrixToUnchecked(result.Storage, 0, 0, RowCount, 0, 0, ColumnCount, ExistingData.Clear);
+            lower.Storage.CopySubMatrixToUnchecked(result.Storage, 0, RowCount, lower.RowCount, 0, ColumnCount, lower.ColumnCount, ExistingData.Clear);
         }
-
-        /// <summary>Calculates the L1 norm.</summary>
-        /// <returns>The L1 norm of the matrix.</returns>
-        public abstract T L1Norm();
-
-        /// <summary>Calculates the L2 norm.</summary>
-        /// <returns>The L2 norm of the matrix.</returns>
-        /// <remarks>For sparse matrices, the L2 norm is computed using a dense implementation of singular value decomposition.
-        /// In a later release, it will be replaced with a sparse implementation.</remarks>
-        public virtual T L2Norm()
-        {
-            return Svd(false).Norm2;
-        }
-
-        /// <summary>Calculates the Frobenius norm of this matrix.</summary>
-        /// <returns>The Frobenius norm of this matrix.</returns>
-        public abstract T FrobeniusNorm();
-
-        /// <summary>Calculates the infinity norm of this matrix.</summary>
-        /// <returns>The infinity norm of this matrix.</returns>
-        public abstract T InfinityNorm();
 
         /// <summary>
-        /// Gets a value indicating whether this matrix is symmetric.
+        /// Evaluates whether this matrix is symmetric.
         /// </summary>
-        public virtual bool IsSymmetric
+        public virtual bool IsSymmetric()
         {
-            get
+            if (RowCount != ColumnCount)
             {
-                if (RowCount != ColumnCount)
-                {
-                    return false;
-                }
+                return false;
+            }
 
-                for (var row = 0; row < RowCount; row++)
+            for (var row = 0; row < RowCount; row++)
+            {
+                for (var column = row + 1; column < ColumnCount; column++)
                 {
-                    for (var column = row + 1; column < ColumnCount; column++)
+                    if (!At(row, column).Equals(At(column, row)))
                     {
-                        if (!At(row, column).Equals(At(column, row)))
-                        {
-                            return false;
-                        }
+                        return false;
                     }
                 }
-
-                return true;
             }
+
+            return true;
         }
+
+        /// <summary>
+        /// Evaluates whether this matrix is Hermitian (conjugate symmetric).
+        /// </summary>
+        public abstract bool IsHermitian();
 
         /// <summary>
         /// Returns this matrix as a multidimensional array.
+        /// The returned array will be independent from this matrix.
+        /// A new memory block will be allocated for the array.
         /// </summary>
         /// <returns>A multidimensional containing the values of this matrix.</returns>
         public T[,] ToArray()
@@ -1274,7 +1303,9 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Returns the matrix's elements as an array with the data laid out column-wise.
+        /// Returns the matrix's elements as an array with the data laid out column by column (column major).
+        /// The returned array will be independent from this matrix.
+        /// A new memory block will be allocated for the array.
         /// </summary>
         /// <example><pre>
         /// 1, 2, 3
@@ -1282,15 +1313,17 @@ namespace MathNet.Numerics.LinearAlgebra
         /// 7, 8, 9
         /// </pre></example>
         /// <returns>An array containing the matrix's elements.</returns>
-        /// <seealso cref="ToRowWiseArray"/>
-        /// <seealso cref="Enumerate"/>
-        public T[] ToColumnWiseArray()
+        /// <seealso cref="ToRowMajorArray"/>
+        /// <seealso cref="Enumerate(Zeros)"/>
+        public T[] ToColumnMajorArray()
         {
             return Storage.ToColumnMajorArray();
         }
 
         /// <summary>
-        /// Returns the matrix's elements as an array with the data laid row-wise.
+        /// Returns the matrix's elements as an array with the data laid row by row (row major).
+        /// The returned array will be independent from this matrix.
+        /// A new memory block will be allocated for the array.
         /// </summary>
         /// <example><pre>
         /// 1, 2, 3
@@ -1298,11 +1331,97 @@ namespace MathNet.Numerics.LinearAlgebra
         /// 7, 8, 9
         /// </pre></example>
         /// <returns>An array containing the matrix's elements.</returns>
-        /// <seealso cref="ToColumnWiseArray"/>
-        /// <seealso cref="Enumerate"/>
-        public T[] ToRowWiseArray()
+        /// <seealso cref="ToColumnMajorArray"/>
+        /// <seealso cref="Enumerate(Zeros)"/>
+        public T[] ToRowMajorArray()
         {
             return Storage.ToRowMajorArray();
+        }
+
+        /// <summary>
+        /// Returns this matrix as array of row arrays.
+        /// The returned arrays will be independent from this matrix.
+        /// A new memory block will be allocated for the arrays.
+        /// </summary>
+        public T[][] ToRowArrays()
+        {
+            return Storage.ToRowArrays();
+        }
+
+        /// <summary>
+        /// Returns this matrix as array of column arrays.
+        /// The returned arrays will be independent from this matrix.
+        /// A new memory block will be allocated for the arrays.
+        /// </summary>
+        public T[][] ToColumnArrays()
+        {
+            return Storage.ToColumnArrays();
+        }
+
+        /// <summary>
+        /// Returns the internal multidimensional array of this matrix if, and only if, this matrix is stored by such an array internally.
+        /// Otherwise returns null. Changes to the returned array and the matrix will affect each other.
+        /// Use ToArray instead if you always need an independent array.
+        /// </summary>
+        public T[,] AsArray()
+        {
+            return Storage.AsArray();
+        }
+
+        /// <summary>
+        /// Returns the internal column by column (column major) array of this matrix if, and only if, this matrix is stored by such arrays internally.
+        /// Otherwise returns null. Changes to the returned arrays and the matrix will affect each other.
+        /// Use ToColumnMajorArray instead if you always need an independent array.
+        /// </summary>
+        /// <example><pre>
+        /// 1, 2, 3
+        /// 4, 5, 6  will be returned as  1, 4, 7, 2, 5, 8, 3, 6, 9
+        /// 7, 8, 9
+        /// </pre></example>
+        /// <returns>An array containing the matrix's elements.</returns>
+        /// <seealso cref="ToRowMajorArray"/>
+        /// <seealso cref="Enumerate(Zeros)"/>
+        public T[] AsColumnMajorArray()
+        {
+            return Storage.AsColumnMajorArray();
+        }
+
+        /// <summary>
+        /// Returns the internal row by row (row major) array of this matrix if, and only if, this matrix is stored by such arrays internally.
+        /// Otherwise returns null. Changes to the returned arrays and the matrix will affect each other.
+        /// Use ToRowMajorArray instead if you always need an independent array.
+        /// </summary>
+        /// <example><pre>
+        /// 1, 2, 3
+        /// 4, 5, 6  will be returned as  1, 2, 3, 4, 5, 6, 7, 8, 9
+        /// 7, 8, 9
+        /// </pre></example>
+        /// <returns>An array containing the matrix's elements.</returns>
+        /// <seealso cref="ToColumnMajorArray"/>
+        /// <seealso cref="Enumerate(Zeros)"/>
+        public T[] AsRowMajorArray()
+        {
+            return Storage.AsRowMajorArray();
+        }
+
+        /// <summary>
+        /// Returns the internal row arrays of this matrix if, and only if, this matrix is stored by such arrays internally.
+        /// Otherwise returns null. Changes to the returned arrays and the matrix will affect each other.
+        /// Use ToRowArrays instead if you always need an independent array.
+        /// </summary>
+        public T[][] AsRowArrays()
+        {
+            return Storage.AsRowArrays();
+        }
+
+        /// <summary>
+        /// Returns the internal column arrays of this matrix if, and only if, this matrix is stored by such arrays internally.
+        /// Otherwise returns null. Changes to the returned arrays and the matrix will affect each other.
+        /// Use ToColumnArrays instead if you always need an independent array.
+        /// </summary>
+        public T[][] AsColumnArrays()
+        {
+            return Storage.AsColumnArrays();
         }
 
         /// <summary>
@@ -1312,11 +1431,27 @@ namespace MathNet.Numerics.LinearAlgebra
         /// The enumerator will include all values, even if they are zero.
         /// The ordering of the values is unspecified (not necessarily column-wise or row-wise).
         /// </remarks>
-        /// <seealso cref="ToColumnWiseArray"/>
-        /// <seealso cref="ToRowWiseArray"/>
         public IEnumerable<T> Enumerate()
         {
             return Storage.Enumerate();
+        }
+
+        /// <summary>
+        /// Returns an IEnumerable that can be used to iterate through all values of the matrix.
+        /// </summary>
+        /// <remarks>
+        /// The enumerator will include all values, even if they are zero.
+        /// The ordering of the values is unspecified (not necessarily column-wise or row-wise).
+        /// </remarks>
+        public IEnumerable<T> Enumerate(Zeros zeros = Zeros.Include)
+        {
+            switch (zeros)
+            {
+                case Zeros.AllowSkip:
+                    return Storage.EnumerateNonZero();
+                default:
+                    return Storage.Enumerate();
+            }
         }
 
         /// <summary>
@@ -1333,27 +1468,22 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Returns an IEnumerable that can be used to iterate through all non-zero values of the matrix.
-        /// </summary>
-        /// <remarks>
-        /// The enumerator will skip all elements with a zero value.
-        /// </remarks>
-        public IEnumerable<T> EnumerateNonZero()
-        {
-            return Storage.EnumerateNonZero();
-        }
-
-        /// <summary>
-        /// Returns an IEnumerable that can be used to iterate through all non-zero values of the matrix and their index.
+        /// Returns an IEnumerable that can be used to iterate through all values of the matrix and their index.
         /// </summary>
         /// <remarks>
         /// The enumerator returns a Tuple with the first two values being the row and column index
         /// and the third value being the value of the element at that index.
-        /// The enumerator will skip all elements with a zero value.
+        /// The enumerator will include all values, even if they are zero.
         /// </remarks>
-        public IEnumerable<Tuple<int, int, T>> EnumerateNonZeroIndexed()
+        public IEnumerable<Tuple<int, int, T>> EnumerateIndexed(Zeros zeros = Zeros.Include)
         {
-            return Storage.EnumerateNonZeroIndexed();
+            switch (zeros)
+            {
+                case Zeros.AllowSkip:
+                    return Storage.EnumerateNonZeroIndexed();
+                default:
+                    return Storage.EnumerateIndexed();
+            }
         }
 
         /// <summary>
@@ -1477,9 +1607,9 @@ namespace MathNet.Numerics.LinearAlgebra
         /// If forceMapZero is not set to true, zero values may or may not be skipped depending
         /// on the actual data storage implementation (relevant mostly for sparse matrices).
         /// </summary>
-        public void MapInplace(Func<T, T> f, bool forceMapZeros = false)
+        public void MapInplace(Func<T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
-            Storage.MapInplace(f, forceMapZeros);
+            Storage.MapInplace(f, zeros);
         }
 
         /// <summary>
@@ -1488,9 +1618,264 @@ namespace MathNet.Numerics.LinearAlgebra
         /// If forceMapZero is not set to true, zero values may or may not be skipped depending
         /// on the actual data storage implementation (relevant mostly for sparse matrices).
         /// </summary>
-        public void MapIndexedInplace(Func<int, int, T, T> f, bool forceMapZeros = false)
+        public void MapIndexedInplace(Func<int, int, T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
-            Storage.MapIndexedInplace(f, forceMapZeros);
+            Storage.MapIndexedInplace(f, zeros);
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and replaces the value in the result matrix.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public void Map(Func<T, T> f, Matrix<T> result, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (ReferenceEquals(this, result))
+            {
+                Storage.MapInplace(f, zeros);
+            }
+            else
+            {
+                Storage.MapTo(result.Storage, f, zeros, zeros == Zeros.Include ? ExistingData.AssumeZeros : ExistingData.Clear);
+            }
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and replaces the value in the result matrix.
+        /// The index of each value (zero-based) is passed as first argument to the function.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public void MapIndexed(Func<int, int, T, T> f, Matrix<T> result, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (ReferenceEquals(this, result))
+            {
+                Storage.MapIndexedInplace(f, zeros);
+            }
+            else
+            {
+                Storage.MapIndexedTo(result.Storage, f, zeros, zeros == Zeros.Include ? ExistingData.AssumeZeros : ExistingData.Clear);
+            }
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and replaces the value in the result matrix.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public void MapConvert<TU>(Func<T, TU> f, Matrix<TU> result, Zeros zeros = Zeros.AllowSkip)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            Storage.MapTo(result.Storage, f, zeros, zeros == Zeros.Include ? ExistingData.AssumeZeros : ExistingData.Clear);
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and replaces the value in the result matrix.
+        /// The index of each value (zero-based) is passed as first argument to the function.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public void MapIndexedConvert<TU>(Func<int, int, T, TU> f, Matrix<TU> result, Zeros zeros = Zeros.AllowSkip)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            Storage.MapIndexedTo(result.Storage, f, zeros, zeros == Zeros.Include ? ExistingData.AssumeZeros : ExistingData.Clear);
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and returns the results as a new matrix.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public Matrix<TU> Map<TU>(Func<T, TU> f, Zeros zeros = Zeros.AllowSkip)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            var result = Matrix<TU>.Build.SameAs(this, RowCount, ColumnCount, fullyMutable: zeros == Zeros.Include);
+            Storage.MapToUnchecked(result.Storage, f, zeros, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Applies a function to each value of this matrix and returns the results as a new matrix.
+        /// The index of each value (zero-based) is passed as first argument to the function.
+        /// If forceMapZero is not set to true, zero values may or may not be skipped depending
+        /// on the actual data storage implementation (relevant mostly for sparse matrices).
+        /// </summary>
+        public Matrix<TU> MapIndexed<TU>(Func<int, int, T, TU> f, Zeros zeros = Zeros.AllowSkip)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            var result = Matrix<TU>.Build.SameAs(this, RowCount, ColumnCount, fullyMutable: zeros == Zeros.Include);
+            Storage.MapIndexedToUnchecked(result.Storage, f, zeros, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// For each row, applies a function f to each element of the row, threading an accumulator argument through the computation.
+        /// Returns an array with the resulting accumulator states for each row.
+        /// </summary>
+        public TU[] FoldByRow<TU>(Func<TU, T, TU> f, TU state, Zeros zeros = Zeros.AllowSkip)
+        {
+            var result = new TU[RowCount];
+            if (!EqualityComparer<TU>.Default.Equals(state, default(TU)))
+            {
+                CommonParallel.For(0, result.Length, 4096, (a, b) =>
+                {
+                    for (int i = a; i < b; i++)
+                    {
+                        result[i] = state;
+                    }
+                });
+            }
+            Storage.FoldByRowUnchecked(result, f, (x, c) => x, result, zeros);
+            return result;
+        }
+
+        /// <summary>
+        /// For each column, applies a function f to each element of the column, threading an accumulator argument through the computation.
+        /// Returns an array with the resulting accumulator states for each column.
+        /// </summary>
+        public TU[] FoldByColumn<TU>(Func<TU, T, TU> f, TU state, Zeros zeros = Zeros.AllowSkip)
+        {
+            var result = new TU[ColumnCount];
+            if (!EqualityComparer<TU>.Default.Equals(state, default(TU)))
+            {
+                CommonParallel.For(0, result.Length, 4096, (a, b) =>
+                {
+                    for (int i = a; i < b; i++)
+                    {
+                        result[i] = state;
+                    }
+                });
+            }
+            Storage.FoldByColumnUnchecked(result, f, (x, c) => x, result, zeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Applies a function f to each row vector, threading an accumulator vector argument through the computation.
+        /// Returns the resulting accumulator vector.
+        /// </summary>
+        public Vector<TU> FoldRows<TU>(Func<Vector<TU>, Vector<T>, Vector<TU>> f, Vector<TU> state)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            foreach (var vector in EnumerateRows())
+            {
+                state = f(state, vector);
+            }
+            return state;
+        }
+
+        /// <summary>
+        /// Applies a function f to each column vector, threading an accumulator vector argument through the computation.
+        /// Returns the resulting accumulator vector.
+        /// </summary>
+        public Vector<TU> FoldColumns<TU>(Func<Vector<TU>, Vector<T>, Vector<TU>> f, Vector<TU> state)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            foreach (var vector in EnumerateColumns())
+            {
+                state = f(state, vector);
+            }
+            return state;
+        }
+
+        /// <summary>
+        /// Reduces all row vectors by applying a function between two of them, until only a single vector is left.
+        /// </summary>
+        public Vector<T> ReduceRows(Func<Vector<T>, Vector<T>, Vector<T>> f)
+        {
+            return EnumerateRows().Aggregate(f);
+        }
+
+        /// <summary>
+        /// Reduces all column vectors by applying a function between two of them, until only a single vector is left.
+        /// </summary>
+        public Vector<T> ReduceColumns(Func<Vector<T>, Vector<T>, Vector<T>> f)
+        {
+            return EnumerateColumns().Aggregate(f);
+        }
+
+        /// <summary>
+        /// Applies a function to each value pair of two matrices and replaces the value in the result vector.
+        /// </summary>
+        public void Map2(Func<T, T, T> f, Matrix<T> other, Matrix<T> result, Zeros zeros = Zeros.AllowSkip)
+        {
+            Storage.Map2To(result.Storage, other.Storage, f, zeros, ExistingData.Clear);
+        }
+
+        /// <summary>
+        /// Applies a function to each value pair of two matrices and returns the results as a new vector.
+        /// </summary>
+        public Matrix<T> Map2(Func<T, T, T> f, Matrix<T> other, Zeros zeros = Zeros.AllowSkip)
+        {
+            var result = Build.SameAs(this);
+            Storage.Map2To(result.Storage, other.Storage, f, zeros, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Applies a function to update the status with each value pair of two matrices and returns the resulting status.
+        /// </summary>
+        public TState Fold2<TOther, TState>(Func<TState, T, TOther, TState> f, TState state, Matrix<TOther> other, Zeros zeros = Zeros.AllowSkip)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            return Storage.Fold2(other.Storage, f, state, zeros);
+        }
+
+        /// <summary>
+        /// Returns a tuple with the index and value of the first element satisfying a predicate, or null if none is found.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public Tuple<int, int, T> Find(Func<T, bool> predicate, Zeros zeros = Zeros.AllowSkip)
+        {
+            return Storage.Find(predicate, zeros);
+        }
+
+        /// <summary>
+        /// Returns a tuple with the index and values of the first element pair of two matrices of the same size satisfying a predicate, or null if none is found.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public Tuple<int, int, T, TOther> Find2<TOther>(Func<T, TOther, bool> predicate, Matrix<TOther> other, Zeros zeros = Zeros.AllowSkip)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            return Storage.Find2(other.Storage, predicate, zeros);
+        }
+
+        /// <summary>
+        /// Returns true if at least one element satisfies a predicate.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public bool Exists(Func<T, bool> predicate, Zeros zeros = Zeros.AllowSkip)
+        {
+            return Storage.Find(predicate, zeros) != null;
+        }
+
+        /// <summary>
+        /// Returns true if at least one element pairs of two matrices of the same size satisfies a predicate.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public bool Exists2<TOther>(Func<T, TOther, bool> predicate, Matrix<TOther> other, Zeros zeros = Zeros.AllowSkip)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            return Storage.Find2(other.Storage, predicate, zeros) != null;
+        }
+
+        /// <summary>
+        /// Returns true if all elements satisfy a predicate.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public bool ForAll(Func<T, bool> predicate, Zeros zeros = Zeros.AllowSkip)
+        {
+            return Storage.Find(x => !predicate(x), zeros) == null;
+        }
+
+        /// <summary>
+        /// Returns true if all element pairs of two matrices of the same size satisfy a predicate.
+        /// Zero elements may be skipped on sparse data structures if allowed (default).
+        /// </summary>
+        public bool ForAll2<TOther>(Func<T, TOther, bool> predicate, Matrix<TOther> other, Zeros zeros = Zeros.AllowSkip)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            return Storage.Find2(other.Storage, (x, y) => !predicate(x, y), zeros) == null;
         }
     }
 }

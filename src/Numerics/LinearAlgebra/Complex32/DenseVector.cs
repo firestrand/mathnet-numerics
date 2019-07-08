@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -28,13 +27,14 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-using MathNet.Numerics.Distributions;
-using MathNet.Numerics.LinearAlgebra.Storage;
-using MathNet.Numerics.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra.Storage;
+using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex32
 {
@@ -44,7 +44,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
     /// A vector using dense storage.
     /// </summary>
     [Serializable]
-    [DebuggerDisplay("DenseVector {Count}-Complex32")]
+    [DebuggerDisplay("DenseVector {" + nameof(Count) + "}-Complex32")]
     public class DenseVector : Vector
     {
         /// <summary>
@@ -138,7 +138,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         public static DenseVector Create(int length, Complex32 value)
         {
             if (value == Complex32.Zero) return new DenseVector(length);
-            return new DenseVector(DenseVectorStorage<Complex32>.OfInit(length, i => value));
+            return new DenseVector(DenseVectorStorage<Complex32>.OfValue(length, value));
         }
 
         /// <summary>
@@ -154,8 +154,8 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// </summary>
         public static DenseVector CreateRandom(int length, IContinuousDistribution distribution)
         {
-            return new DenseVector(DenseVectorStorage<Complex32>.OfInit(length,
-                i => new Complex32((float)distribution.Sample(), (float)distribution.Sample())));
+            var samples = Generate.RandomComplex32(length, distribution);
+            return new DenseVector(new DenseVectorStorage<Complex32>(length, samples));
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (vector == null)
             {
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(vector));
             }
 
             return vector.Values;
@@ -196,7 +196,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (array == null)
             {
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(array));
             }
 
             return new DenseVector(array);
@@ -242,7 +242,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
             else
             {
-                Control.LinearAlgebraProvider.AddArrays(_values, otherDense._values, resultDense._values);
+                LinearAlgebraControl.Provider.AddArrays(_values, otherDense._values, resultDense._values);
             }
         }
 
@@ -258,7 +258,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseVector)leftSide.Add(rightSide);
@@ -304,7 +304,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
             else
             {
-                Control.LinearAlgebraProvider.SubtractArrays(_values, otherDense._values, resultDense._values);
+                LinearAlgebraControl.Provider.SubtractArrays(_values, otherDense._values, resultDense._values);
             }
         }
 
@@ -318,7 +318,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseVector)rightSide.Negate();
@@ -336,7 +336,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseVector)leftSide.Subtract(rightSide);
@@ -352,11 +352,26 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             if (denseResult == null)
             {
                 base.DoNegate(result);
+                return;
             }
-            else
+
+            LinearAlgebraControl.Provider.ScaleArray(-Complex32.One, _values, denseResult.Values);
+        }
+
+        /// <summary>
+        /// Conjugates vector and save result to <paramref name="result"/>
+        /// </summary>
+        /// <param name="result">Target vector</param>
+        protected override void DoConjugate(Vector<Complex32> result)
+        {
+            var resultDense = result as DenseVector;
+            if (resultDense == null)
             {
-                Control.LinearAlgebraProvider.ScaleArray(-Complex32.One, _values, denseResult.Values);
+                base.DoConjugate(result);
+                return;
             }
+
+            LinearAlgebraControl.Provider.ConjugateArray(_values, resultDense._values);
         }
 
         /// <summary>
@@ -371,11 +386,10 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             if (denseResult == null)
             {
                 base.DoMultiply(scalar, result);
+                return;
             }
-            else
-            {
-                Control.LinearAlgebraProvider.ScaleArray(scalar, _values, denseResult.Values);
-            }
+
+            LinearAlgebraControl.Provider.ScaleArray(scalar, _values, denseResult.Values);
         }
 
         /// <summary>
@@ -388,7 +402,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             var denseVector = other as DenseVector;
             return denseVector == null
                 ? base.DoDotProduct(other)
-                : Control.LinearAlgebraProvider.DotProduct(_values, denseVector.Values);
+                : LinearAlgebraControl.Provider.DotProduct(_values, denseVector.Values);
         }
 
         /// <summary>
@@ -421,7 +435,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseVector)leftSide.Multiply(rightSide);
@@ -438,7 +452,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseVector)rightSide.Multiply(leftSide);
@@ -456,7 +470,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return leftSide.DotProduct(rightSide);
@@ -473,7 +487,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseVector)leftSide.Divide(rightSide);
@@ -498,24 +512,6 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
 
             return index;
-        }
-
-        /// <summary>
-        /// Returns the value of the absolute minimum element.
-        /// </summary>
-        /// <returns>The value of the absolute minimum element.</returns>
-        public override Complex32 AbsoluteMinimum()
-        {
-            return _values[AbsoluteMinimumIndex()].Magnitude;
-        }
-
-        /// <summary>
-        /// Returns the value of the absolute maximum element.
-        /// </summary>
-        /// <returns>The value of the absolute maximum element.</returns>
-        public override Complex32 AbsoluteMaximum()
-        {
-            return _values[AbsoluteMaximumIndex()].Magnitude;
         }
 
         /// <summary>
@@ -580,7 +576,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public override double InfinityNorm()
         {
             return CommonParallel.Aggregate(_values, (i, v) => v.Magnitude, Math.Max, 0f);
@@ -593,7 +589,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <returns>Scalar <c>ret = ( ∑|this[i]|^p )^(1/p)</c></returns>
         public override double Norm(double p)
         {
-            if (p < 0d) throw new ArgumentOutOfRangeException("p");
+            if (p < 0d) throw new ArgumentOutOfRangeException(nameof(p));
 
             if (p == 1d) return L1Norm();
             if (p == 2d) return L2Norm();
@@ -623,7 +619,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
             else
             {
-                Control.LinearAlgebraProvider.PointWiseMultiplyArrays(_values, denseOther._values, denseResult._values);
+                LinearAlgebraControl.Provider.PointWiseMultiplyArrays(_values, denseOther._values, denseResult._values);
             }
         }
 
@@ -644,55 +640,28 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
             else
             {
-                Control.LinearAlgebraProvider.PointWiseDivideArrays(_values, denseOther._values, denseResult._values);
+                LinearAlgebraControl.Provider.PointWiseDivideArrays(_values, denseOther._values, denseResult._values);
             }
         }
 
         /// <summary>
-        /// Outer product of two vectors
+        /// Pointwise raise this vector to an exponent vector and store the result into the result vector.
         /// </summary>
-        /// <param name="u">First vector</param>
-        /// <param name="v">Second vector</param>
-        /// <returns>Matrix M[i,j] = u[i]*v[j] </returns>
-        /// <exception cref="ArgumentNullException">If the u vector is <see langword="null" />.</exception>
-        /// <exception cref="ArgumentNullException">If the v vector is <see langword="null" />.</exception>
-        public static DenseMatrix OuterProduct(DenseVector u, DenseVector v)
+        /// <param name="exponent">The exponent vector to raise this vector values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected override void DoPointwisePower(Vector<Complex32> exponent, Vector<Complex32> result)
         {
-            if (u == null)
+            var denseExponent = exponent as DenseVector;
+            var denseResult = result as DenseVector;
+
+            if (denseExponent == null || denseResult == null)
             {
-                throw new ArgumentNullException("u");
+                base.DoPointwisePower(exponent, result);
             }
-
-            if (v == null)
+            else
             {
-                throw new ArgumentNullException("v");
+                LinearAlgebraControl.Provider.PointWisePowerArrays(_values, denseExponent._values, denseResult._values);
             }
-
-            var matrix = new DenseMatrix(u.Count, v.Count);
-            CommonParallel.For(0, u.Count, (a, b) =>
-                {
-                    for (int i = a; i < b; i++)
-                    {
-                        for (var j = 0; j < v.Count; j++)
-                        {
-                            matrix.At(i, j, u._values[i]*v._values[j]);
-                        }
-                    }
-                });
-            return matrix;
-        }
-
-        /// <summary>
-        /// Outer product of this and another vector.
-        /// </summary>
-        /// <param name="v">The vector to operate on.</param>
-        /// <returns>
-        /// Matrix M[i,j] = this[i] * v[j].
-        /// </returns>
-        /// <seealso cref="OuterProduct(DenseVector, DenseVector)"/>
-        public Matrix<Complex32> OuterProduct(DenseVector v)
-        {
-            return OuterProduct(this, v);
         }
 
         #region Parse Functions
@@ -714,7 +683,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
             }
 
             value = value.Trim();
@@ -837,27 +806,5 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         }
 
         #endregion
-
-        /// <summary>
-        /// Conjugates vector and save result to <paramref name="result"/>
-        /// </summary>
-        /// <param name="result">Target vector</param>
-        protected override void DoConjugate(Vector<Complex32> result)
-        {
-            var resultDense = result as DenseVector;
-            if (resultDense == null)
-            {
-                base.DoConjugate(result);
-                return;
-            }
-
-            CommonParallel.For(0, _length, 4096, (a, b) =>
-                {
-                    for (int i = a; i < b; i++)
-                    {
-                        resultDense._values[i] = _values[i].Conjugate();
-                    }
-                });
-        }
     }
 }

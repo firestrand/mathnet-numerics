@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -28,19 +27,16 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
+using System;
+using System.Collections.Generic;
+using Complex = System.Numerics.Complex;
+
+#if !NETSTANDARD1_3
+using System.Runtime;
+#endif
+
 namespace MathNet.Numerics
 {
-    using System;
-    using System.Collections.Generic;
-
-#if !PORTABLE
-    using System.Runtime;
-#endif
-
-#if !NOSYSNUMERICS
-    using Complex = System.Numerics.Complex;
-#endif
-
     /// <summary>
     /// Extension methods for the Complex type provided by System.Numerics
     /// </summary>
@@ -49,7 +45,17 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets the squared magnitude of the <c>Complex</c> number.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex32"/> number to perform this operation on.</param>
+        /// <returns>The squared magnitude of the <c>Complex</c> number.</returns>
+        public static double MagnitudeSquared(this Complex32 complex)
+        {
+            return (complex.Real * complex.Real) + (complex.Imaginary * complex.Imaginary);
+        }
+
+        /// <summary>
+        /// Gets the squared magnitude of the <c>Complex</c> number.
+        /// </summary>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>The squared magnitude of the <c>Complex</c> number.</returns>
         public static double MagnitudeSquared(this Complex complex)
         {
@@ -95,7 +101,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets the conjugate of the <c>Complex</c> number.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <remarks>
         /// The semantic of <i>setting the conjugate</i> is such that
         /// <code>
@@ -127,7 +133,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Exponential of this <c>Complex</c> (exp(x), E^x).
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         /// The exponential of this complex number.
         /// </returns>
@@ -140,7 +146,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Natural Logarithm of this <c>Complex</c> (Base E).
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         /// The natural logarithm of this complex number.
         /// </returns>
@@ -173,7 +179,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Raise this <c>Complex</c> to the given value.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <param name="exponent">
         /// The exponent.
         /// </param>
@@ -210,7 +216,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Raise this <c>Complex</c> to the inverse of the given value.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <param name="rootExponent">
         /// The root exponent.
         /// </param>
@@ -225,7 +231,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// The Square (power 2) of this <c>Complex</c>
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         /// The square of this complex number.
         /// </returns>
@@ -242,7 +248,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// The Square Root (power 1/2) of this <c>Complex</c>
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         /// The square root of this complex number.
         /// </returns>
@@ -290,9 +296,32 @@ namespace MathNet.Numerics
         }
 
         /// <summary>
+        /// Evaluate all square roots of this <c>Complex</c>.
+        /// </summary>
+        public static Tuple<Complex, Complex> SquareRoots(this Complex complex)
+        {
+            var principal = SquareRoot(complex);
+            return new Tuple<Complex, Complex>(principal, -principal);
+        }
+
+        /// <summary>
+        /// Evaluate all cubic roots of this <c>Complex</c>.
+        /// </summary>
+        public static Tuple<Complex, Complex, Complex> CubicRoots(this Complex complex)
+        {
+            var r = Math.Pow(complex.Magnitude, 1d/3d);
+            var theta = complex.Phase/3;
+            const double shift = Constants.Pi2/3;
+            return new Tuple<Complex, Complex, Complex>(
+                Complex.FromPolarCoordinates(r, theta),
+                Complex.FromPolarCoordinates(r, theta + shift),
+                Complex.FromPolarCoordinates(r, theta - shift));
+        }
+
+        /// <summary>
         /// Gets a value indicating whether the <c>Complex32</c> is zero.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns><c>true</c> if this instance is zero; otherwise, <c>false</c>.</returns>
         public static bool IsZero(this Complex complex)
         {
@@ -302,7 +331,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets a value indicating whether the <c>Complex32</c> is one.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns><c>true</c> if this instance is one; otherwise, <c>false</c>.</returns>
         public static bool IsOne(this Complex complex)
         {
@@ -313,7 +342,7 @@ namespace MathNet.Numerics
         /// Gets a value indicating whether the <c>Complex32</c> is the imaginary unit.
         /// </summary>
         /// <returns><c>true</c> if this instance is ImaginaryOne; otherwise, <c>false</c>.</returns>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         public static bool IsImaginaryOne(this Complex complex)
         {
             return complex.Real == 0.0 && complex.Imaginary == 1.0;
@@ -323,7 +352,7 @@ namespace MathNet.Numerics
         /// Gets a value indicating whether the provided <c>Complex32</c>evaluates
         /// to a value that is not a number.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         /// <c>true</c> if this instance is <c>NaN</c>; otherwise,
         /// <c>false</c>.
@@ -337,7 +366,7 @@ namespace MathNet.Numerics
         /// Gets a value indicating whether the provided <c>Complex32</c> evaluates to an
         /// infinite value.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         ///     <c>true</c> if this instance is infinite; otherwise, <c>false</c>.
         /// </returns>
@@ -353,7 +382,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets a value indicating whether the provided <c>Complex32</c> is real.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns><c>true</c> if this instance is a real number; otherwise, <c>false</c>.</returns>
         public static bool IsReal(this Complex complex)
         {
@@ -363,7 +392,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets a value indicating whether the provided <c>Complex32</c> is real and not negative, that is &gt;= 0.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
+        /// <param name="complex">The <see cref="Complex"/> number to perform this operation on.</param>
         /// <returns>
         ///     <c>true</c> if this instance is real nonnegative number; otherwise, <c>false</c>.
         /// </returns>
@@ -376,23 +405,36 @@ namespace MathNet.Numerics
         /// Returns a Norm of a value of this type, which is appropriate for measuring how
         /// close this value is to zero.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
-        /// <returns>A norm of this value.</returns>
         public static double Norm(this Complex complex)
         {
             return complex.MagnitudeSquared();
         }
 
         /// <summary>
+        /// Returns a Norm of a value of this type, which is appropriate for measuring how
+        /// close this value is to zero.
+        /// </summary>
+        public static double Norm(this Complex32 complex)
+        {
+            return complex.MagnitudeSquared;
+        }
+
+        /// <summary>
         /// Returns a Norm of the difference of two values of this type, which is
         /// appropriate for measuring how close together these two values are.
         /// </summary>
-        /// <param name="complex">The <see cref="Complex"/> number to perfom this operation on.</param>
-        /// <param name="otherValue">The value to compare with.</param>
-        /// <returns>A norm of the difference between this and the other value.</returns>
         public static double NormOfDifference(this Complex complex, Complex otherValue)
         {
             return (complex - otherValue).MagnitudeSquared();
+        }
+
+        /// <summary>
+        /// Returns a Norm of the difference of two values of this type, which is
+        /// appropriate for measuring how close together these two values are.
+        /// </summary>
+        public static double NormOfDifference(this Complex32 complex, Complex32 otherValue)
+        {
+            return (complex - otherValue).MagnitudeSquared;
         }
 
         /// <summary>
@@ -430,7 +472,7 @@ namespace MathNet.Numerics
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
             }
 
             value = value.Trim();
@@ -562,7 +604,7 @@ namespace MathNet.Numerics
                 }
             }
 
-#if PORTABLE
+#if NETSTANDARD1_3
             var value = GlobalizationHelper.ParseDouble(ref token);
 #else
             var value = GlobalizationHelper.ParseDouble(ref token, format.GetCultureInfo());

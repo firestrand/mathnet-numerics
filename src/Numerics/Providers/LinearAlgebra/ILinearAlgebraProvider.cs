@@ -2,10 +2,9 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
-// 
-// Copyright (c) 2009-2013 Math.NET
-// 
+//
+// Copyright (c) 2009-2018 Math.NET
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -14,10 +13,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -29,15 +28,10 @@
 // </copyright>
 
 using MathNet.Numerics.LinearAlgebra.Factorization;
+using Complex = System.Numerics.Complex;
 
 namespace MathNet.Numerics.Providers.LinearAlgebra
 {
-
-#if !NOSYSNUMERICS
-    using Complex = System.Numerics.Complex;
-
-#endif
-
     /// <summary>
     /// How to transpose a matrix.
     /// </summary>
@@ -90,21 +84,35 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
     /// Interface to linear algebra algorithms that work off 1-D arrays.
     /// </summary>
     public interface ILinearAlgebraProvider :
-        ILinearAlgebraProvider<double, double>,
-        ILinearAlgebraProvider<float, float>,
-        ILinearAlgebraProvider<Complex, double>,
-        ILinearAlgebraProvider<Complex32, float>
+        ILinearAlgebraProvider<double>,
+        ILinearAlgebraProvider<float>,
+        ILinearAlgebraProvider<Complex>,
+        ILinearAlgebraProvider<Complex32>
     {
+        /// <summary>
+        /// Try to find out whether the provider is available, at least in principle.
+        /// Verification may still fail if available, but it will certainly fail if unavailable.
+        /// </summary>
+        bool IsAvailable();
+
+        /// <summary>
+        /// Initialize and verify that the provided is indeed available. If not, fall back to alternatives like the managed provider
+        /// </summary>
+        void InitializeVerify();
+
+        /// <summary>
+        /// Frees memory buffers, caches and handles allocated in or to the provider.
+        /// Does not unload the provider itself, it is still usable afterwards.
+        /// </summary>
+        void FreeResources();
     }
 
     /// <summary>
     /// Interface to linear algebra algorithms that work off 1-D arrays.
     /// </summary>
     /// <typeparam name="T">Supported data types are Double, Single, Complex, and Complex32.</typeparam>
-    /// <typeparam name="TNorm">Supported data types are Double and Single, must correspond to T.</typeparam>
-    public interface ILinearAlgebraProvider<T, TNorm>
+    public interface ILinearAlgebraProvider<T>
         where T : struct
-        where TNorm : struct
     {
         /*/// <summary>
         /// Queries the provider for the optimal, workspace block size
@@ -135,6 +143,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void ScaleArray(T alpha, T[] x, T[] result);
 
         /// <summary>
+        /// Conjugates an array. Can be used to conjugate a vector and a matrix.
+        /// </summary>
+        /// <param name="x">The values to conjugate.</param>
+        /// <param name="result">This result of the conjugation.</param>
+        void ConjugateArray(T[] x, T[] result);
+
+        /// <summary>
         /// Computes the dot product of x and y.
         /// </summary>
         /// <param name="x">The vector x.</param>
@@ -144,7 +159,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         T DotProduct(T[] x, T[] y);
 
         /// <summary>
-        /// Does a point wise add of two arrays <c>z = x + y</c>. This can be used 
+        /// Does a point wise add of two arrays <c>z = x + y</c>. This can be used
         /// to add vectors or matrices.
         /// </summary>
         /// <param name="x">The array x.</param>
@@ -156,7 +171,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void AddArrays(T[] x, T[] y, T[] result);
 
         /// <summary>
-        /// Does a point wise subtraction of two arrays <c>z = x - y</c>. This can be used 
+        /// Does a point wise subtraction of two arrays <c>z = x - y</c>. This can be used
         /// to subtract vectors or matrices.
         /// </summary>
         /// <param name="x">The array x.</param>
@@ -192,16 +207,16 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void PointWiseDivideArrays(T[] x, T[] y, T[] result);
 
         /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
+        /// Does a point wise power of two arrays <c>z = x ^ y</c>. This can be used
+        /// to raise elements of vectors or matrices to the powers of another vector or matrix.
         /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows.</param>
-        /// <param name="columns">The number of columns.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        T MatrixNorm(Norm norm, int rows, int columns, T[] matrix);
+        /// <param name="x">The array x.</param>
+        /// <param name="y">The array y.</param>
+        /// <param name="result">The result of the point wise power.</param>
+        /// <remarks>There is no equivalent BLAS routine, but many libraries
+        /// provide optimized (parallel and/or vectorized) versions of this
+        /// routine.</remarks>
+        void PointWisePowerArrays(T[] x, T[] y, T[] result);
 
         /// <summary>
         /// Computes the requested <see cref="Norm"/> of the matrix.
@@ -210,12 +225,10 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// <param name="rows">The number of rows.</param>
         /// <param name="columns">The number of columns.</param>
         /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <param name="work">The work array. Only used when <see cref="Norm.InfinityNorm"/>
-        /// and needs to be have a length of at least M (number of rows of <paramref name="matrix"/>.</param>
         /// <returns>
         /// The requested <see cref="Norm"/> of the matrix.
         /// </returns>
-        T MatrixNorm(Norm norm, int rows, int columns, T[] matrix, TNorm[] work);
+        double MatrixNorm(Norm norm, int rows, int columns, T[] matrix);
 
         /// <summary>
         /// Multiples two matrices. <c>result = x * y</c>
@@ -274,29 +287,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// <param name="ipiv">The pivot indices of <paramref name="a"/>.</param>
         /// <remarks>This is equivalent to the GETRI LAPACK routine.</remarks>
         void LUInverseFactored(T[] a, int order, int[] ipiv);
-
-        /// <summary>
-        /// Computes the inverse of matrix using LU factorization.
-        /// </summary>
-        /// <param name="a">The N by N matrix to invert. Contains the inverse On exit.</param>
-        /// <param name="order">The order of the square matrix <paramref name="a"/>.</param>
-        /// <param name="work">The work array. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent. On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <remarks>This is equivalent to the GETRF and GETRI LAPACK routines.</remarks>
-        void LUInverse(T[] a, int order, T[] work);
-
-        /// <summary>
-        /// Computes the inverse of a previously factored matrix.
-        /// </summary>
-        /// <param name="a">The LU factored N by N matrix.  Contains the inverse On exit.</param>
-        /// <param name="order">The order of the square matrix <paramref name="a"/>.</param>
-        /// <param name="ipiv">The pivot indices of <paramref name="a"/>.</param>
-        /// <param name="work">The work array. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent.  On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <remarks>This is equivalent to the GETRI LAPACK routine.</remarks>
-        void LUInverseFactored(T[] a, int order, int[] ipiv, T[] work);
 
         /// <summary>
         /// Solves A*X=B for X using LU factorization.
@@ -363,23 +353,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void QRFactor(T[] a, int rowsA, int columnsA, T[] q, T[] tau);
 
         /// <summary>
-        /// Computes the full QR factorization of A.
-        /// </summary>
-        /// <param name="a">On entry, it is the M by N A matrix to factor. On exit,
-        /// it is overwritten with the R matrix of the QR factorization.</param>
-        /// <param name="rowsA">The number of rows in the A matrix.</param>
-        /// <param name="columnsA">The number of columns in the A matrix.</param>
-        /// <param name="q">On exit, A M by M matrix that holds the Q matrix of the
-        /// QR factorization.</param>
-        /// <param name="tau">A min(m,n) vector. On exit, contains additional information
-        /// to be used by the QR solve routine.</param>
-        /// <param name="work">The work array. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent. On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <remarks>This is similar to the GEQRF and ORGQR LAPACK routines.</remarks>
-        void QRFactor(T[] a, int rowsA, int columnsA, T[] q, T[] tau, T[] work);
-
-        /// <summary>
         /// Computes the thin QR factorization of A where M &gt; N.
         /// </summary>
         /// <param name="a">On entry, it is the M by N A matrix to factor. On exit,
@@ -394,23 +367,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void ThinQRFactor(T[] a, int rowsA, int columnsA, T[] r, T[] tau);
 
         /// <summary>
-        /// Computes the thin QR factorization of A where M &gt; N.
-        /// </summary>
-        /// <param name="a">On entry, it is the M by N A matrix to factor. On exit,
-        /// it is overwritten with the Q matrix of the QR factorization.</param>
-        /// <param name="rowsA">The number of rows in the A matrix.</param>
-        /// <param name="columnsA">The number of columns in the A matrix.</param>
-        /// <param name="r">On exit, A N by N matrix that holds the R matrix of the
-        /// QR factorization.</param>
-        /// <param name="tau">A min(m,n) vector. On exit, contains additional information
-        /// to be used by the QR solve routine.</param>
-        /// <param name="work">The work array. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent. On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <remarks>This is similar to the GEQRF and ORGQR LAPACK routines.</remarks>
-        void ThinQRFactor(T[] a, int rowsA, int columnsA, T[] r, T[] tau, T[] work);
-
-        /// <summary>
         /// Solves A*X=B for X using QR factorization of A.
         /// </summary>
         /// <param name="a">The A matrix.</param>
@@ -422,22 +378,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// <param name="method">The type of QR factorization to perform. <seealso cref="QRMethod"/></param>
         /// <remarks>Rows must be greater or equal to columns.</remarks>
         void QRSolve(T[] a, int rows, int columns, T[] b, int columnsB, T[] x, QRMethod method = QRMethod.Full);
-
-        /// <summary>
-        /// Solves A*X=B for X using QR factorization of A.
-        /// </summary>
-        /// <param name="a">The A matrix.</param>
-        /// <param name="rows">The number of rows in the A matrix.</param>
-        /// <param name="columns">The number of columns in the A matrix.</param>
-        /// <param name="b">On entry the B matrix; on exit the X matrix.</param>
-        /// <param name="columnsB">The number of columns of B.</param>
-        /// <param name="x">On exit, the solution matrix.</param>
-        /// <param name="work">The work array. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent. On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <param name="method">The type of QR factorization to perform. <seealso cref="QRMethod"/></param>
-        /// <remarks>Rows must be greater or equal to columns.</remarks>
-        void QRSolve(T[] a, int rows, int columns, T[] b, int columnsB, T[] x, T[] work, QRMethod method = QRMethod.Full);
 
         /// <summary>
         /// Solves A*X=B for X using a previously QR factored matrix.
@@ -457,26 +397,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         void QRSolveFactored(T[] q, T[] r, int rowsA, int columnsA, T[] tau, T[] b, int columnsB, T[] x, QRMethod method = QRMethod.Full);
 
         /// <summary>
-        /// Solves A*X=B for X using a previously QR factored matrix.
-        /// </summary>
-        /// <param name="q">The Q matrix obtained by QR factor. This is only used for the managed provider and can be
-        /// <c>null</c> for the native provider. The native provider uses the Q portion stored in the R matrix.</param>
-        /// <param name="r">The R matrix obtained by calling <see cref="QRFactor(T[],int,int,T[],T[])"/>. </param>
-        /// <param name="rowsA">The number of rows in the A matrix.</param>
-        /// <param name="columnsA">The number of columns in the A matrix.</param>
-        /// <param name="tau">Contains additional information on Q. Only used for the native solver
-        /// and can be <c>null</c> for the managed provider.</param>
-        /// <param name="b">On entry the B matrix; on exit the X matrix.</param>
-        /// <param name="columnsB">The number of columns of B.</param>
-        /// <param name="x">On exit, the solution matrix.</param>
-        /// <param name="work">The work array - only used in the native provider. The array must have a length of at least N,
-        /// but should be N*blocksize. The blocksize is machine dependent. On exit, work[0] contains the optimal
-        /// work size value.</param>
-        /// <remarks>Rows must be greater or equal to columns.</remarks>
-        /// <param name="method">The type of QR factorization to perform. <seealso cref="QRMethod"/></param>
-        void QRSolveFactored(T[] q, T[] r, int rowsA, int columnsA, T[] tau, T[] b, int columnsB, T[] x, T[] work, QRMethod method = QRMethod.Full);
-
-        /// <summary>
         /// Computes the singular value decomposition of A.
         /// </summary>
         /// <param name="computeVectors">Compute the singular U and VT vectors or not.</param>
@@ -490,23 +410,6 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// right singular vectors.</param>
         /// <remarks>This is equivalent to the GESVD LAPACK routine.</remarks>
         void SingularValueDecomposition(bool computeVectors, T[] a, int rowsA, int columnsA, T[] s, T[] u, T[] vt);
-
-        /// <summary>
-        /// Computes the singular value decomposition of A.
-        /// </summary>
-        /// <param name="computeVectors">Compute the singular U and VT vectors or not.</param>
-        /// <param name="a">On entry, the M by N matrix to decompose. On exit, A may be overwritten.</param>
-        /// <param name="rowsA">The number of rows in the A matrix.</param>
-        /// <param name="columnsA">The number of columns in the A matrix.</param>
-        /// <param name="s">The singular values of A in ascending value. </param>
-        /// <param name="u">If <paramref name="computeVectors"/> is <c>true</c>, on exit U contains the left
-        /// singular vectors.</param>
-        /// <param name="vt">If <paramref name="computeVectors"/> is <c>true</c>, on exit VT contains the transposed
-        /// right singular vectors.</param>
-        /// <param name="work">The work array. On exit, work[0] contains the optimal work size value.
-        /// </param>
-        /// <remarks>This is equivalent to the GESVD LAPACK routine.</remarks>
-        void SingularValueDecomposition(bool computeVectors, T[] a, int rowsA, int columnsA, T[] s, T[] u, T[] vt, T[] work);
 
         /// <summary>
         /// Solves A*X=B for X using the singular value decomposition of A.
@@ -526,7 +429,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// <param name="columnsA">The number of columns in the A matrix.</param>
         /// <param name="s">The s values returned by <see cref="SingularValueDecomposition(bool,T[],int,int,T[],T[],T[])"/>.</param>
         /// <param name="u">The left singular vectors returned by  <see cref="SingularValueDecomposition(bool,T[],int,int, T[],T[],T[])"/>.</param>
-        /// <param name="vt">The right singular  vectors returned by  <see cref="SingularValueDecomposition(bool,T[],int,int,T[],T[],T[],T[])"/>.</param>
+        /// <param name="vt">The right singular  vectors returned by  <see cref="SingularValueDecomposition(bool,T[],int,int,T[],T[],T[])"/>.</param>
         /// <param name="b">The B matrix</param>
         /// <param name="columnsB">The number of columns of B.</param>
         /// <param name="x">On exit, the solution matrix.</param>
@@ -535,12 +438,12 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
         /// <summary>
         /// Computes the eigenvalues and eigenvectors of a matrix.
         /// </summary>
-        /// <param name="isSymmetric">Wether the matrix is symmetric or not.</param>
+        /// <param name="isSymmetric">Whether the matrix is symmetric or not.</param>
         /// <param name="order">The order of the matrix.</param>
-        /// <param name="matrix">The matrix to decompose. The lenth of the array must be order * order.</param>
-        /// <param name="matrixEv">On output, the matrix contains the eigen vectors. The lenth of the array must be order * order.</param>
-        /// <param name="vectorEv">On output, the eigen values (λ) of matrix in ascending value. The length of the arry must <paramref name="order"/>.</param>
-        /// <param name="matrixD">On output, the block diagonal eigenvalue matrix. The lenth of the array must be order * order.</param>
+        /// <param name="matrix">The matrix to decompose. The length of the array must be order * order.</param>
+        /// <param name="matrixEv">On output, the matrix contains the eigen vectors. The length of the array must be order * order.</param>
+        /// <param name="vectorEv">On output, the eigen values (λ) of matrix in ascending value. The length of the array must <paramref name="order"/>.</param>
+        /// <param name="matrixD">On output, the block diagonal eigenvalue matrix. The length of the array must be order * order.</param>
         void EigenDecomp(bool isSymmetric, int order, T[] matrix, T[] matrixEv, Complex[] vectorEv, T[] matrixD);
     }
 }

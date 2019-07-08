@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -31,11 +30,11 @@
 namespace MathNet.Numerics.Statistics.Mcmc
 {
     using System;
-    using Properties;
     using Distributions;
+    using Properties;
 
     /// <summary>
-    /// Metropolis sampling produces samples from distribition P by sampling from a proposal distribution Q
+    /// Metropolis sampling produces samples from distribution P by sampling from a proposal distribution Q
     /// and accepting/rejecting based on the density of P. Metropolis sampling requires that the proposal
     /// distribution Q is symmetric. All densities are required to be in log space.
     ///
@@ -100,7 +99,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException(Resources.ArgumentNotNegative);
+                    throw new ArgumentException(Resources.ArgumentNotNegative);
                 }
                 _burnInterval = value;
             }

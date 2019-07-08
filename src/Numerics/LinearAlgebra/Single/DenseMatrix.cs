@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -346,7 +345,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         public static DenseMatrix Create(int rows, int columns, float value)
         {
             if (value == 0f) return new DenseMatrix(rows, columns);
-            return new DenseMatrix(DenseColumnMajorMatrixStorage<float>.OfInit(rows, columns, (i, j) => value));
+            return new DenseMatrix(DenseColumnMajorMatrixStorage<float>.OfValue(rows, columns, value));
         }
 
         /// <summary>
@@ -375,11 +374,19 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         }
 
         /// <summary>
+        /// Create a new square sparse identity matrix where each diagonal value is set to One.
+        /// </summary>
+        public static DenseMatrix CreateIdentity(int order)
+        {
+            return new DenseMatrix(DenseColumnMajorMatrixStorage<float>.OfDiagonalInit(order, order, i => One));
+        }
+
+        /// <summary>
         /// Create a new dense matrix with values sampled from the provided random distribution.
         /// </summary>
         public static DenseMatrix CreateRandom(int rows, int columns, IContinuousDistribution distribution)
         {
-            return new DenseMatrix(DenseColumnMajorMatrixStorage<float>.OfInit(rows, columns, (i, j) => (float) distribution.Sample()));
+            return new DenseMatrix(new DenseColumnMajorMatrixStorage<float>(rows, columns, Generate.RandomSingle(rows*columns, distribution)));
         }
 
         /// <summary>
@@ -391,68 +398,42 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             get { return _values; }
         }
 
-        /// <summary>
-        /// Returns the transpose of this matrix.
-        /// </summary>
-        /// <returns>The transpose of this matrix.</returns>
-        public override Matrix<float> Transpose()
+        /// <summary>Calculates the induced L1 norm of this matrix.</summary>
+        /// <returns>The maximum absolute column sum of the matrix.</returns>
+        public override double L1Norm()
         {
-            var ret = new DenseMatrix(_columnCount, _rowCount);
-            for (var j = 0; j < _columnCount; j++)
-            {
-                var index = j * _rowCount;
-                for (var i = 0; i < _rowCount; i++)
-                {
-                    ret._values[(i * _columnCount) + j] = _values[index + i];
-                }
-            }
-
-            return ret;
+            return LinearAlgebraControl.Provider.MatrixNorm(Norm.OneNorm, _rowCount, _columnCount, _values);
         }
 
-        /// <summary>Calculates the L1 norm.</summary>
-        /// <returns>The L1 norm of the matrix.</returns>
-        public override float L1Norm()
+        /// <summary>Calculates the induced infinity norm of this matrix.</summary>
+        /// <returns>The maximum absolute row sum of the matrix.</returns>
+        public override double InfinityNorm()
         {
-            return Control.LinearAlgebraProvider.MatrixNorm(Norm.OneNorm, _rowCount, _columnCount, _values);
+            return LinearAlgebraControl.Provider.MatrixNorm(Norm.InfinityNorm, _rowCount, _columnCount, _values);
         }
 
-        /// <summary>Calculates the Frobenius norm of this matrix.</summary>
-        /// <returns>The Frobenius norm of this matrix.</returns>
-        public override float FrobeniusNorm()
+        /// <summary>Calculates the entry-wise Frobenius norm of this matrix.</summary>
+        /// <returns>The square root of the sum of the squared values.</returns>
+        public override double FrobeniusNorm()
         {
-            return Control.LinearAlgebraProvider.MatrixNorm(Norm.FrobeniusNorm, _rowCount, _columnCount, _values);
+            return LinearAlgebraControl.Provider.MatrixNorm(Norm.FrobeniusNorm, _rowCount, _columnCount, _values);
         }
-
-        /// <summary>Calculates the infinity norm of this matrix.</summary>
-        /// <returns>The infinity norm of this matrix.</returns>
-        public override float InfinityNorm()
-        {
-            return Control.LinearAlgebraProvider.MatrixNorm(Norm.InfinityNorm, _rowCount, _columnCount, _values);
-        }
-
-        #region Static constructors for special matrices.
 
         /// <summary>
-        /// Initializes a square <see cref="DenseMatrix"/> with all zero's except for ones on the diagonal.
+        /// Negate each element of this matrix and place the results into the result matrix.
         /// </summary>
-        /// <param name="order">the size of the square matrix.</param>
-        /// <returns>A dense identity matrix.</returns>
-        /// <exception cref="ArgumentException">
-        /// If <paramref name="order"/> is less than one.
-        /// </exception>
-        public static DenseMatrix Identity(int order)
+        /// <param name="result">The result of the negation.</param>
+        protected override void DoNegate(Matrix<float> result)
         {
-            var m = new DenseMatrix(order);
-            for (var i = 0; i < order; i++)
+            var denseResult = result as DenseMatrix;
+            if (denseResult != null)
             {
-                m._values[(i * order) + i] = 1.0f;
+                LinearAlgebraControl.Provider.ScaleArray(-1, _values, denseResult._values);
+                return;
             }
 
-            return m;
+            base.DoNegate(result);
         }
-
-        #endregion
 
         /// <summary>
         /// Add a scalar to each element of the matrix and stores the result in the result vector.
@@ -469,13 +450,13 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
 
             CommonParallel.For(0, _values.Length, 4096, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
                 {
-                    var v = denseResult._values;
-                    for (int i = a; i < b; i++)
-                    {
-                        v[i] = _values[i] + scalar;
-                    }
-                });
+                    v[i] = _values[i] + scalar;
+                }
+            });
         }
 
         /// <summary>
@@ -487,16 +468,29 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <exception cref="ArgumentOutOfRangeException">If the two matrices don't have the same dimensions.</exception>
         protected override void DoAdd(Matrix<float> other, Matrix<float> result)
         {
-            var denseOther = other as DenseMatrix;
-            var denseResult = result as DenseMatrix;
-            if (denseOther == null || denseResult == null)
+            // dense + dense = dense
+            var denseOther = other.Storage as DenseColumnMajorMatrixStorage<float>;
+            var denseResult = result.Storage as DenseColumnMajorMatrixStorage<float>;
+            if (denseOther != null && denseResult != null)
             {
-                base.DoAdd(other, result);
+                LinearAlgebraControl.Provider.AddArrays(_values, denseOther.Data, denseResult.Data);
+                return;
             }
-            else
+
+            // dense + diagonal = any
+            var diagonalOther = other.Storage as DiagonalMatrixStorage<float>;
+            if (diagonalOther != null)
             {
-                Control.LinearAlgebraProvider.AddArrays(_values, denseOther._values, denseResult._values);
+                Storage.CopyToUnchecked(result.Storage, ExistingData.Clear);
+                var diagonal = diagonalOther.Data;
+                for (int i = 0; i < diagonal.Length; i++)
+                {
+                    result.At(i, i, result.At(i, i) + diagonal[i]);
+                }
+                return;
             }
+
+            base.DoAdd(other, result);
         }
 
         /// <summary>
@@ -514,13 +508,13 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
 
             CommonParallel.For(0, _values.Length, 4096, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
                 {
-                    var v = denseResult._values;
-                    for (int i = a; i < b; i++)
-                    {
-                        v[i] = _values[i] - scalar;
-                    }
-                });
+                    v[i] = _values[i] - scalar;
+                }
+            });
         }
 
         /// <summary>
@@ -530,16 +524,29 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <param name="result">The matrix to store the result of the subtraction.</param>
         protected override void DoSubtract(Matrix<float> other, Matrix<float> result)
         {
-            var denseOther = other as DenseMatrix;
-            var denseResult = result as DenseMatrix;
-            if (denseOther == null || denseResult == null)
+            // dense + dense = dense
+            var denseOther = other.Storage as DenseColumnMajorMatrixStorage<float>;
+            var denseResult = result.Storage as DenseColumnMajorMatrixStorage<float>;
+            if (denseOther != null && denseResult != null)
             {
-                base.DoSubtract(other, result);
+                LinearAlgebraControl.Provider.SubtractArrays(_values, denseOther.Data, denseResult.Data);
+                return;
             }
-            else
+
+            // dense + diagonal = matrix
+            var diagonalOther = other.Storage as DiagonalMatrixStorage<float>;
+            if (diagonalOther != null)
             {
-                Control.LinearAlgebraProvider.SubtractArrays(_values, denseOther._values, denseResult._values);
+                CopyTo(result);
+                var diagonal = diagonalOther.Data;
+                for (int i = 0; i < diagonal.Length; i++)
+                {
+                    result.At(i, i, result.At(i, i) - diagonal[i]);
+                }
+                return;
             }
+
+            base.DoSubtract(other, result);
         }
 
         /// <summary>
@@ -556,7 +563,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.ScaleArray(scalar, _values, denseResult._values);
+                LinearAlgebraControl.Provider.ScaleArray(scalar, _values, denseResult._values);
             }
         }
 
@@ -576,17 +583,13 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    1.0f,
+                LinearAlgebraControl.Provider.MatrixMultiply(
                     _values,
                     _rowCount,
                     _columnCount,
                     denseRight.Values,
                     denseRight.Count,
                     1,
-                    0.0f,
                     denseResult.Values);
             }
         }
@@ -600,26 +603,41 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             var denseOther = other as DenseMatrix;
             var denseResult = result as DenseMatrix;
-
-            if (denseOther == null || denseResult == null)
+            if (denseOther != null && denseResult != null)
             {
-                base.DoMultiply(other, result);
-            }
-            else
-            {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    1.0f,
+                LinearAlgebraControl.Provider.MatrixMultiply(
                     _values,
                     _rowCount,
                     _columnCount,
                     denseOther._values,
                     denseOther._rowCount,
                     denseOther._columnCount,
-                    0.0f,
                     denseResult._values);
+                return;
             }
+
+            var diagonalOther = other.Storage as DiagonalMatrixStorage<float>;
+            if (diagonalOther != null)
+            {
+                var diagonal = diagonalOther.Data;
+                var d = Math.Min(ColumnCount, other.ColumnCount);
+                if (d < other.ColumnCount)
+                {
+                    result.ClearSubMatrix(0, RowCount, ColumnCount, other.ColumnCount - ColumnCount);
+                }
+                int index = 0;
+                for (int j = 0; j < d; j++)
+                {
+                    for (int i = 0; i < RowCount; i++)
+                    {
+                        result.At(i, j, _values[index]*diagonal[j]);
+                        index++;
+                    }
+                }
+                return;
+            }
+
+            base.DoMultiply(other, result);
         }
 
         /// <summary>
@@ -629,16 +647,11 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoTransposeAndMultiply(Matrix<float> other, Matrix<float> result)
         {
-             var denseOther = other as DenseMatrix;
+            var denseOther = other as DenseMatrix;
             var denseResult = result as DenseMatrix;
-
-            if (denseOther == null || denseResult == null)
+            if (denseOther != null && denseResult != null)
             {
-                base.DoTransposeAndMultiply(other, result);
-            }
-            else
-            {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
+                LinearAlgebraControl.Provider.MatrixMultiplyWithUpdate(
                     Providers.LinearAlgebra.Transpose.DontTranspose,
                     Providers.LinearAlgebra.Transpose.Transpose,
                     1.0f,
@@ -650,7 +663,31 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                     denseOther._columnCount,
                     0.0f,
                     denseResult._values);
+                return;
             }
+
+            var diagonalOther = other.Storage as DiagonalMatrixStorage<float>;
+            if (diagonalOther != null)
+            {
+                var diagonal = diagonalOther.Data;
+                var d = Math.Min(ColumnCount, other.RowCount);
+                if (d < other.RowCount)
+                {
+                    result.ClearSubMatrix(0, RowCount, ColumnCount, other.RowCount - ColumnCount);
+                }
+                int index = 0;
+                for (int j = 0; j < d; j++)
+                {
+                    for (int i = 0; i < RowCount; i++)
+                    {
+                        result.At(i, j, _values[index]*diagonal[j]);
+                        index++;
+                    }
+                }
+                return;
+            }
+
+            base.DoTransposeAndMultiply(other, result);
         }
 
         /// <summary>
@@ -669,7 +706,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
+                LinearAlgebraControl.Provider.MatrixMultiplyWithUpdate(
                     Providers.LinearAlgebra.Transpose.Transpose,
                     Providers.LinearAlgebra.Transpose.DontTranspose,
                     1.0f,
@@ -693,14 +730,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             var denseOther = other as DenseMatrix;
             var denseResult = result as DenseMatrix;
-
-            if (denseOther == null || denseResult == null)
+            if (denseOther != null && denseResult != null)
             {
-                base.DoTransposeThisAndMultiply(other, result);
-            }
-            else
-            {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
+                LinearAlgebraControl.Provider.MatrixMultiplyWithUpdate(
                     Providers.LinearAlgebra.Transpose.Transpose,
                     Providers.LinearAlgebra.Transpose.DontTranspose,
                     1.0f,
@@ -712,25 +744,32 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                     denseOther._columnCount,
                     0.0f,
                     denseResult._values);
+                return;
             }
-        }
 
-        /// <summary>
-        /// Negate each element of this matrix and place the results into the result matrix.
-        /// </summary>
-        /// <param name="result">The result of the negation.</param>
-        protected override void DoNegate(Matrix<float> result)
-        {
-            var denseResult = result as DenseMatrix;
+            var diagonalOther = other.Storage as DiagonalMatrixStorage<float>;
+            if (diagonalOther != null)
+            {
+                var diagonal = diagonalOther.Data;
+                var d = Math.Min(RowCount, other.ColumnCount);
+                if (d < other.ColumnCount)
+                {
+                    result.ClearSubMatrix(0, ColumnCount, RowCount, other.ColumnCount - RowCount);
+                }
+                int index = 0;
+                for (int i = 0; i < ColumnCount; i++)
+                {
+                    for (int j = 0; j < d; j++)
+                    {
+                        result.At(i, j, _values[index]*diagonal[j]);
+                        index++;
+                    }
+                    index += (RowCount - d);
+                }
+                return;
+            }
 
-            if (denseResult == null)
-            {
-                base.DoNegate(result);
-            }
-            else
-            {
-                Control.LinearAlgebraProvider.ScaleArray(-1, _values, denseResult._values);
-            }
+            base.DoTransposeThisAndMultiply(other, result);
         }
 
         /// <summary>
@@ -747,7 +786,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.ScaleArray(1.0f/divisor, _values, denseResult._values);
+                LinearAlgebraControl.Provider.ScaleArray(1.0f/divisor, _values, denseResult._values);
             }
         }
 
@@ -767,7 +806,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.PointWiseMultiplyArrays(_values, denseOther._values, denseResult._values);
+                LinearAlgebraControl.Provider.PointWiseMultiplyArrays(_values, denseOther._values, denseResult._values);
             }
         }
 
@@ -787,14 +826,35 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
             else
             {
-                Control.LinearAlgebraProvider.PointWiseDivideArrays(_values, denseOther._values, denseResult._values);
+                LinearAlgebraControl.Provider.PointWiseDivideArrays(_values, denseOther._values, denseResult._values);
             }
         }
 
         /// <summary>
-        /// Computes the modulus for each element of the matrix.
+        /// Pointwise raise this matrix to an exponent and store the result into the result matrix.
         /// </summary>
-        /// <param name="divisor">The divisor to use.</param>
+        /// <param name="exponent">The exponent to raise this matrix values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected override void DoPointwisePower(Matrix<float> exponent, Matrix<float> result)
+        {
+            var denseExponent = exponent as DenseMatrix;
+            var denseResult = result as DenseMatrix;
+
+            if (denseExponent == null || denseResult == null)
+            {
+                base.DoPointwisePower(exponent, result);
+            }
+            else
+            {
+                LinearAlgebraControl.Provider.PointWisePowerArrays(_values, denseExponent._values, denseResult._values);
+            }
+        }
+
+        /// <summary>
+        /// Computes the canonical modulus, where the result has the sign of the divisor,
+        /// for the given divisor each element of the matrix.
+        /// </summary>
+        /// <param name="divisor">The scalar denominator to use.</param>
         /// <param name="result">Matrix to store the results in.</param>
         protected override void DoModulus(float divisor, Matrix<float> result)
         {
@@ -811,20 +871,21 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
 
             CommonParallel.For(0, _values.Length, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
                 {
-                    var v = denseResult._values;
-                    for (int i = a; i < b; i++)
-                    {
-                        v[i] %= divisor;
-                    }
-                });
+                    v[i] = Euclid.Modulus(v[i], divisor);
+                }
+            });
         }
 
         /// <summary>
-        /// Computes the modulus for each element of the matrix.
+        /// Computes the canonical modulus, where the result has the sign of the divisor,
+        /// for the given dividend for each element of the matrix.
         /// </summary>
         /// <param name="dividend">The scalar numerator to use.</param>
-        /// <param name="result">Matrix to store the results in.</param>
+        /// <param name="result">A vector to store the results in.</param>
         protected override void DoModulusByThis(float dividend, Matrix<float> result)
         {
             var denseResult = result as DenseMatrix;
@@ -835,13 +896,68 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
 
             CommonParallel.For(0, _values.Length, 4096, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
                 {
-                    var v = denseResult._values;
-                    for (int i = a; i < b; i++)
-                    {
-                        v[i] = dividend%_values[i];
-                    }
-                });
+                    v[i] = Euclid.Modulus(dividend, _values[i]);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// for the given divisor each element of the matrix.
+        /// </summary>
+        /// <param name="divisor">The scalar denominator to use.</param>
+        /// <param name="result">Matrix to store the results in.</param>
+        protected override void DoRemainder(float divisor, Matrix<float> result)
+        {
+            var denseResult = result as DenseMatrix;
+            if (denseResult == null)
+            {
+                base.DoRemainder(divisor, result);
+                return;
+            }
+
+            if (!ReferenceEquals(this, result))
+            {
+                CopyTo(result);
+            }
+
+            CommonParallel.For(0, _values.Length, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
+                {
+                    v[i] %= divisor;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// for the given dividend for each element of the matrix.
+        /// </summary>
+        /// <param name="dividend">The scalar numerator to use.</param>
+        /// <param name="result">A vector to store the results in.</param>
+        protected override void DoRemainderByThis(float dividend, Matrix<float> result)
+        {
+            var denseResult = result as DenseMatrix;
+            if (denseResult == null)
+            {
+                base.DoRemainderByThis(dividend, result);
+                return;
+            }
+
+            CommonParallel.For(0, _values.Length, 4096, (a, b) =>
+            {
+                var v = denseResult._values;
+                for (int i = a; i < b; i++)
+                {
+                    v[i] = dividend%_values[i];
+                }
+            });
         }
 
         /// <summary>
@@ -880,12 +996,12 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             if (leftSide._rowCount != rightSide._rowCount || leftSide._columnCount != rightSide._columnCount)
@@ -906,7 +1022,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseMatrix)rightSide.Clone();
@@ -927,12 +1043,12 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             if (leftSide._rowCount != rightSide._rowCount || leftSide._columnCount != rightSide._columnCount)
@@ -953,7 +1069,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseMatrix)rightSide.Negate();
@@ -970,7 +1086,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseMatrix)leftSide.Multiply(rightSide);
@@ -987,7 +1103,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseMatrix)rightSide.Multiply(leftSide);
@@ -1008,12 +1124,12 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             if (leftSide._columnCount != rightSide._rowCount)
@@ -1035,7 +1151,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (DenseVector)leftSide.Multiply(rightSide);
@@ -1052,7 +1168,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (DenseVector)rightSide.LeftMultiply(leftSide);
@@ -1069,10 +1185,35 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
-            return (DenseMatrix)leftSide.Modulus(rightSide);
+            return (DenseMatrix)leftSide.Remainder(rightSide);
+        }
+
+        /// <summary>
+        /// Evaluates whether this matrix is symmetric.
+        /// </summary>
+        public override bool IsSymmetric()
+        {
+            if (RowCount != ColumnCount)
+            {
+                return false;
+            }
+
+            for (var j = 0; j < ColumnCount; j++)
+            {
+                var index = j * RowCount;
+                for (var i = j + 1; i < RowCount; i++)
+                {
+                    if (_values[(i*ColumnCount) + j] != _values[index + i])
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         public override Cholesky<float> Cholesky()
@@ -1100,9 +1241,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             return DenseSvd.Create(this, computeVectors);
         }
 
-        public override Evd<float> Evd()
+        public override Evd<float> Evd(Symmetricity symmetricity = Symmetricity.Unknown)
         {
-            return DenseEvd.Create(this);
+            return DenseEvd.Create(this, symmetricity);
         }
     }
 }

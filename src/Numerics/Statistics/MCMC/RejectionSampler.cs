@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -34,7 +33,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
     using Properties;
 
     /// <summary>
-    /// Rejection sampling produces samples from distribition P by sampling from a proposal distribution Q
+    /// Rejection sampling produces samples from distribution P by sampling from a proposal distribution Q
     /// and accepting/rejecting based on the density of P and Q. The density of P and Q don't need to
     /// to be normalized, but we do need that for each x, P(x) &lt; Q(x).
     /// </summary>
@@ -91,7 +90,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
 
                 if (q < p)
                 {
-                    throw new ArgumentOutOfRangeException(Resources.ProposalDistributionNoUpperBound);
+                    throw new ArgumentException(Resources.ProposalDistributionNoUpperBound);
                 }
                 if (u < p)
                 {

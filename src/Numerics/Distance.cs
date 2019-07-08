@@ -2,10 +2,9 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
-// 
+//
 // Copyright (c) 2009-2013 Math.NET
-// 
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -14,10 +13,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -29,11 +28,17 @@
 // </copyright>
 
 using System;
+using System.Collections.Generic;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.Statistics;
 
 namespace MathNet.Numerics
 {
+    /// <summary>
+    /// Metrics to measure the distance between two structures.
+    /// </summary>
     public static class Distance
     {
         /// <summary>
@@ -49,7 +54,10 @@ namespace MathNet.Numerics
         /// </summary>
         public static double SAD(double[] a, double[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
 
             double sum = 0d;
             for (var i = 0; i < a.Length; i++)
@@ -64,7 +72,10 @@ namespace MathNet.Numerics
         /// </summary>
         public static float SAD(float[] a, float[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
 
             float sum = 0f;
             for (var i = 0; i < a.Length; i++)
@@ -112,9 +123,14 @@ namespace MathNet.Numerics
         /// </summary>
         public static double SSD(double[] a, double[] b)
         {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             var diff = new double[a.Length];
-            Control.LinearAlgebraProvider.SubtractArrays(a, b, diff);
-            return Control.LinearAlgebraProvider.DotProduct(diff, diff);
+            LinearAlgebraControl.Provider.SubtractArrays(a, b, diff);
+            return LinearAlgebraControl.Provider.DotProduct(diff, diff);
         }
 
         /// <summary>
@@ -122,9 +138,14 @@ namespace MathNet.Numerics
         /// </summary>
         public static float SSD(float[] a, float[] b)
         {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             var diff = new float[a.Length];
-            Control.LinearAlgebraProvider.SubtractArrays(a, b, diff);
-            return Control.LinearAlgebraProvider.DotProduct(diff, diff);
+            LinearAlgebraControl.Provider.SubtractArrays(a, b, diff);
+            return LinearAlgebraControl.Provider.DotProduct(diff, diff);
         }
 
         /// <summary>
@@ -213,7 +234,11 @@ namespace MathNet.Numerics
         /// </summary>
         public static double Chebyshev(double[] a, double[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentOutOfRangeException("b");
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             double max = Math.Abs(a[0] - b[0]);
             for (int i = 1; i < a.Length; i++)
             {
@@ -231,7 +256,11 @@ namespace MathNet.Numerics
         /// </summary>
         public static float Chebyshev(float[] a, float[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentOutOfRangeException("b");
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             float max = Math.Abs(a[0] - b[0]);
             for (int i = 1; i < a.Length; i++)
             {
@@ -245,13 +274,169 @@ namespace MathNet.Numerics
         }
 
         /// <summary>
+        /// Minkowski Distance, i.e. the generalized p-norm of the difference.
+        /// </summary>
+        public static double Minkowski<T>(double p, Vector<T> a, Vector<T> b) where T : struct, IEquatable<T>, IFormattable
+        {
+            return (a - b).Norm(p);
+        }
+
+        /// <summary>
+        /// Minkowski Distance, i.e. the generalized p-norm of the difference.
+        /// </summary>
+        public static double Minkowski(double p, double[] a, double[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            if (p < 0d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(p));
+            }
+
+            if (p == 1d)
+            {
+                return Manhattan(a, b);
+            }
+
+            if (p == 2d)
+            {
+                return Euclidean(a, b);
+            }
+
+            if (double.IsPositiveInfinity(p))
+            {
+                return Chebyshev(a, b);
+            }
+
+            double sum = 0d;
+            for (var i = 0; i < a.Length; i++)
+            {
+                sum += Math.Pow(Math.Abs(a[i] - b[i]), p);
+            }
+            return Math.Pow(sum, 1.0 / p);
+        }
+
+        /// <summary>
+        /// Minkowski Distance, i.e. the generalized p-norm of the difference.
+        /// </summary>
+        public static float Minkowski(double p, float[] a, float[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            if (p < 0d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(p));
+            }
+
+            if (p == 1d)
+            {
+                return Manhattan(a, b);
+            }
+
+            if (p == 2d)
+            {
+                return Euclidean(a, b);
+            }
+
+            if (double.IsPositiveInfinity(p))
+            {
+                return Chebyshev(a, b);
+            }
+
+            double sum = 0d;
+            for (var i = 0; i < a.Length; i++)
+            {
+                sum += Math.Pow(Math.Abs(a[i] - b[i]), p);
+            }
+            return (float) Math.Pow(sum, 1.0/p);
+        }
+
+        /// <summary>
+        /// Canberra Distance, a weighted version of the L1-norm of the difference.
+        /// </summary>
+        public static double Canberra(double[] a, double[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            double sum = 0d;
+            for (var i = 0; i < a.Length; i++)
+            {
+                sum += Math.Abs(a[i] - b[i]) / (Math.Abs(a[i]) + Math.Abs(b[i]));
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// Canberra Distance, a weighted version of the L1-norm of the difference.
+        /// </summary>
+        public static float Canberra(float[] a, float[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            float sum = 0f;
+            for (var i = 0; i < a.Length; i++)
+            {
+                sum += Math.Abs(a[i] - b[i]) / (Math.Abs(a[i]) + Math.Abs(b[i]));
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// Cosine Distance, representing the angular distance while ignoring the scale.
+        /// </summary>
+        public static double Cosine(double[] a, double[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            var ab = LinearAlgebraControl.Provider.DotProduct(a, b);
+            var a2 = LinearAlgebraControl.Provider.DotProduct(a, a);
+            var b2 = LinearAlgebraControl.Provider.DotProduct(b, b);
+            return 1d - ab/Math.Sqrt(a2*b2);
+        }
+
+        /// <summary>
+        /// Cosine Distance, representing the angular distance while ignoring the scale.
+        /// </summary>
+        public static float Cosine(float[] a, float[] b)
+        {
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            var ab = LinearAlgebraControl.Provider.DotProduct(a, b);
+            var a2 = LinearAlgebraControl.Provider.DotProduct(a, a);
+            var b2 = LinearAlgebraControl.Provider.DotProduct(b, b);
+            return (float)(1d - ab/Math.Sqrt(a2*b2));
+        }
+
+        /// <summary>
         /// Hamming Distance, i.e. the number of positions that have different values in the vectors.
         /// </summary>
         public static double Hamming(double[] a, double[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentOutOfRangeException("b");
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             int count = 0;
-            for (int i = 1; i < a.Length; i++)
+            for (int i = 0; i < a.Length; i++)
             {
                 if (a[i] != b[i])
                 {
@@ -266,9 +451,13 @@ namespace MathNet.Numerics
         /// </summary>
         public static float Hamming(float[] a, float[] b)
         {
-            if (a.Length != b.Length) throw new ArgumentOutOfRangeException("b");
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
             int count = 0;
-            for (int i = 1; i < a.Length; i++)
+            for (int i = 0; i < a.Length; i++)
             {
                 if (a[i] != b[i])
                 {
@@ -276,6 +465,106 @@ namespace MathNet.Numerics
                 }
             }
             return count;
+        }
+
+        /// <summary>
+        /// Pearson's distance, i.e. 1 - the person correlation coefficient.
+        /// </summary>
+        public static double Pearson(IEnumerable<double> a, IEnumerable<double> b)
+        {
+            return 1.0 - Correlation.Pearson(a, b);
+        }
+
+        /// <summary>
+        /// Jaccard distance, i.e. 1 - the Jaccard index.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown if a or b are null.</exception>
+        /// <exception cref="ArgumentException">Throw if a and b are of different lengths.</exception>
+        /// <returns>Jaccard distance.</returns>
+        public static double Jaccard(double[] a, double[] b)
+        {
+            int intersection = 0, union = 0;
+
+            if (a == null)
+            {
+                throw new ArgumentNullException(nameof(a));
+            }
+
+            if (b == null)
+            {
+                throw new ArgumentNullException(nameof(b));
+            }
+
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            if (a.Length == 0 && b.Length == 0)
+            {
+                return 0;
+            }
+
+            for (int x = 0, len = a.Length; x < len; x++)
+            {
+                if (a[x] != 0 && b[x] != 0)
+                {
+                    if (a[x] == b[x])
+                    {
+                        intersection++;
+                    }
+
+                    union++;
+                }
+            }
+
+            return 1.0 - ((double)intersection / (double)union);
+        }
+
+        /// <summary>
+        /// Jaccard distance, i.e. 1 - the Jaccard index.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown if a or b are null.</exception>
+        /// <exception cref="ArgumentException">Throw if a and b are of different lengths.</exception>
+        /// <returns>Jaccard distance.</returns>
+        public static double Jaccard(float[] a, float[] b)
+        {
+            int intersection = 0, union = 0;
+
+            if (a == null)
+            {
+                throw new ArgumentNullException(nameof(a));
+            }
+
+            if (b == null)
+            {
+                throw new ArgumentNullException(nameof(b));
+            }
+
+            if (a.Length != b.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength);
+            }
+
+            if (a.Length == 0 && b.Length == 0)
+            {
+                return 0;
+            }
+
+            for (int x = 0, len = a.Length; x < len; x++)
+            {
+                if (a[x] != 0 && b[x] != 0)
+                {
+                    if (a[x] == b[x])
+                    {
+                        intersection++;
+                    }
+
+                    union++;
+                }
+            }
+
+            return 1.0 - ((float)intersection / (float)union);
         }
     }
 }

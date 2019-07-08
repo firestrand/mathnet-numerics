@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -106,12 +105,12 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Solvers
         {
             if (matrix == null)
             {
-                throw new ArgumentNullException("matrix");
+                throw new ArgumentNullException(nameof(matrix));
             }
 
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             _decompositionLU = SparseMatrix.OfMatrix(matrix);
@@ -187,7 +186,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Solvers
             var rowValues = new DenseVector(_decompositionLU.RowCount);
             for (var i = 0; i < _decompositionLU.RowCount; i++)
             {
-                // Clear the rowValues 
+                // Clear the rowValues
                 rowValues.Clear();
                 _decompositionLU.Row(i, rowValues);
 

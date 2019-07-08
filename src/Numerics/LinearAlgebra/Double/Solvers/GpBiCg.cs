@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -39,16 +38,16 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The Generalized Product Bi-Conjugate Gradient (GPBiCG) solver is an 
+    /// The Generalized Product Bi-Conjugate Gradient (GPBiCG) solver is an
     /// alternative version of the Bi-Conjugate Gradient stabilized (CG) solver.
-    /// Unlike the CG solver the GPBiCG solver can be used on 
+    /// Unlike the CG solver the GPBiCG solver can be used on
     /// non-symmetric matrices. <br/>
     /// Note that much of the success of the solver depends on the selection of the
     /// proper preconditioner.
     /// </para>
     /// <para>
     /// The GPBiCG algorithm was taken from: <br/>
-    /// GPBiCG(m,l): A hybrid of BiCGSTAB and GPBiCG methods with 
+    /// GPBiCG(m,l): A hybrid of BiCGSTAB and GPBiCG methods with
     /// efficiency and robustness
     /// <br/>
     /// S. Fujino
@@ -64,13 +63,13 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
     public sealed class GpBiCg : IIterativeSolver<double>
     {
         /// <summary>
-        /// Indicates the number of <c>BiCGStab</c> steps should be taken 
+        /// Indicates the number of <c>BiCGStab</c> steps should be taken
         /// before switching.
         /// </summary>
         int _numberOfBiCgStabSteps = 1;
 
         /// <summary>
-        /// Indicates the number of <c>GPBiCG</c> steps should be taken 
+        /// Indicates the number of <c>GPBiCG</c> steps should be taken
         /// before switching.
         /// </summary>
         int _numberOfGpbiCgSteps = 4;
@@ -90,7 +89,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _numberOfBiCgStabSteps = value;
@@ -112,7 +111,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _numberOfGpbiCgSteps = value;
@@ -166,7 +165,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (result.Count != input.Count)
@@ -271,7 +270,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                 // We'll set cDot to 1 if it is zero to prevent NaN's
                 // Note that the calculation should continue fine because
                 // c.DotProduct(t) will be zero and so will c.DotProduct(y)
-                if (cdot.AlmostEqual(0, 1))
+                if (cdot.AlmostEqualNumbersBetween(0, 1))
                 {
                     cdot = 1.0;
                 }
@@ -299,7 +298,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                     // We'll set yDot to 1 if it is zero to prevent NaN's
                     // Note that the calculation should continue fine because
                     // y.DotProduct(t) will be zero and so will c.DotProduct(y)
-                    if (ydot.AlmostEqual(0, 1))
+                    if (ydot.AlmostEqualNumbersBetween(0, 1))
                     {
                         ydot = 1.0;
                     }
@@ -359,7 +358,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
 
                 // beta_k = alpha_k / sigma_k * (r*_0 * r_(k+1)) / (r*_0 * r_k)
                 // But first we check if there is a possible NaN. If so just reset beta to zero.
-                beta = (!sigma.AlmostEqual(0, 1)) ? alpha/sigma*rdash.DotProduct(residuals)/rdash.DotProduct(t0) : 0;
+                beta = (!sigma.AlmostEqualNumbersBetween(0, 1)) ? alpha/sigma*rdash.DotProduct(residuals)/rdash.DotProduct(t0) : 0;
 
                 // w_k = c_k + beta_k s_k
                 s.Multiply(beta, temp2);

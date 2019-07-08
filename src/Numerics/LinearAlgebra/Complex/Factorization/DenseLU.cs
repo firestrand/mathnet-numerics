@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -30,15 +29,11 @@
 
 using System;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Providers.LinearAlgebra;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// <para>A class which encapsulates the functionality of an LU factorization.</para>
@@ -61,7 +56,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         {
             if (matrix == null)
             {
-                throw new ArgumentNullException("matrix");
+                throw new ArgumentNullException(nameof(matrix));
             }
 
             if (matrix.RowCount != matrix.ColumnCount)
@@ -74,7 +69,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 
             // Create a new matrix for the LU factors, then perform factorization (while overwriting).
             var factors = (DenseMatrix) matrix.Clone();
-            Control.LinearAlgebraProvider.LUFactor(factors.Values, factors.RowCount, pivots);
+            LinearAlgebraControl.Provider.LUFactor(factors.Values, factors.RowCount, pivots);
 
             return new DenseLU(factors, pivots);
         }
@@ -94,12 +89,12 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -131,11 +126,11 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             }
 
             // Copy the contents of input to result.
-            Array.Copy(dinput.Values, dresult.Values, dinput.Values.Length);
+            Array.Copy(dinput.Values, 0, dresult.Values, 0, dinput.Values.Length);
 
             // LU solve by overwriting result.
             var dfactors = (DenseMatrix) Factors;
-            Control.LinearAlgebraProvider.LUSolveFactored(input.ColumnCount, dfactors.Values, dfactors.RowCount, Pivots, dresult.Values);
+            LinearAlgebraControl.Provider.LUSolveFactored(input.ColumnCount, dfactors.Values, dfactors.RowCount, Pivots, dresult.Values);
         }
 
         /// <summary>
@@ -148,12 +143,12 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -180,11 +175,11 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             }
 
             // Copy the contents of input to result.
-            Array.Copy(dinput.Values, dresult.Values, dinput.Values.Length);
+            Array.Copy(dinput.Values, 0, dresult.Values, 0, dinput.Values.Length);
 
             // LU solve by overwriting result.
             var dfactors = (DenseMatrix) Factors;
-            Control.LinearAlgebraProvider.LUSolveFactored(1, dfactors.Values, dfactors.RowCount, Pivots, dresult.Values);
+            LinearAlgebraControl.Provider.LUSolveFactored(1, dfactors.Values, dfactors.RowCount, Pivots, dresult.Values);
         }
 
         /// <summary>
@@ -194,7 +189,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         public override Matrix<Complex> Inverse()
         {
             var result = (DenseMatrix) Factors.Clone();
-            Control.LinearAlgebraProvider.LUInverseFactored(result.Values, result.RowCount, Pivots);
+            LinearAlgebraControl.Provider.LUInverseFactored(result.Values, result.RowCount, Pivots);
             return result;
         }
     }

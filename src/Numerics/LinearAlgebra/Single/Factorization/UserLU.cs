@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -54,7 +53,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
         {
             if (matrix == null)
             {
-                throw new ArgumentNullException("matrix");
+                throw new ArgumentNullException(nameof(matrix));
             }
 
             if (matrix.RowCount != matrix.ColumnCount)
@@ -146,12 +145,12 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -232,12 +231,12 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -295,7 +294,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
         public override Matrix<float> Inverse()
         {
             var order = Factors.RowCount;
-            var inverse = Factors.CreateMatrix(order, order);
+            var inverse = Matrix<float>.Build.SameAs(Factors, order, order);
             for (var i = 0; i < order; i++)
             {
                 inverse.At(i, i, 1.0f);

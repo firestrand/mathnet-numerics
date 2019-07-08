@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -37,15 +36,14 @@ namespace MathNet.Numerics.Financial
 {
     public static class AbsoluteRiskMeasures
     {
-        //Note: The following statistics would be condidered an absolute risk statistic in the finance realm as well.
-        // Standard Deviation 
+        // Note: The following statistics would be considered an absolute risk statistic in the finance realm as well.
+        // Standard Deviation
         // Annualized Standard Deviation = Math.Sqrt(Monthly Standard Deviation x ( 12 ))
         // Skewness
-        // Kurtosis  
-
+        // Kurtosis
 
         /// <summary>
-        /// Calculation is similar to Standard Deviation , except it calculates an average (mean) return only for periods with a gain 
+        /// Calculation is similar to Standard Deviation , except it calculates an average (mean) return only for periods with a gain
         /// and measures the variation of only the gain periods around the gain mean. Measures the volatility of upside performance.
         /// © Copyright 1996, 1999 Gary L.Gastineau. First Edition. © 1992 Swiss Bank Corporation.
         /// </summary>
@@ -53,14 +51,14 @@ namespace MathNet.Numerics.Financial
         {
             if (data == null)
             {
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             }
 
             return data.Where(x => x >= 0).StandardDeviation();
         }
 
         /// <summary>
-        /// Similar to standard deviation, except this statistic calculates an average (mean) return for only the periods with a loss and then 
+        /// Similar to standard deviation, except this statistic calculates an average (mean) return for only the periods with a loss and then
         /// measures the variation of only the losing periods around this loss mean. This statistic measures the volatility of downside performance.
         /// </summary>
         /// <remarks>http://www.offshore-library.com/kb/statistics.php</remarks>
@@ -68,7 +66,7 @@ namespace MathNet.Numerics.Financial
         {
             if (data == null)
             {
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             }
 
             return data.Where(x => x < 0).StandardDeviation();
@@ -85,7 +83,7 @@ namespace MathNet.Numerics.Financial
         {
             if (data == null)
             {
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             }
 
             return data.Where(x => x < minimalAcceptableReturn).StandardDeviation();
@@ -99,7 +97,7 @@ namespace MathNet.Numerics.Financial
         {
             if (data == null)
             {
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             }
 
             var mean = data.Mean();
@@ -115,7 +113,7 @@ namespace MathNet.Numerics.Financial
         {
             if (data == null)
             {
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             }
 
             var gains = data.Where(x => x >= 0);

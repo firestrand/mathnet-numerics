@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -33,10 +32,7 @@ using System;
 namespace MathNet.Numerics.LinearAlgebra.Factorization
 {
     using Numerics;
-
-#if !NOSYSNUMERICS
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// Eigenvalues and eigenvectors of a real matrix.
@@ -91,7 +87,7 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         /// Gets or sets the eigen values (λ) of matrix in ascending value.
         /// </summary>
         public Vector<Complex> EigenValues { get; private set; }
-        
+
         /// <summary>
         /// Gets or sets eigenvectors.
         /// </summary>
@@ -103,38 +99,38 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         public Matrix<T> D { get; private set; }
 
         /// <summary>
-        /// Solves a system of linear equations, <b>AX = B</b>, with A SVD factorized.
+        /// Solves a system of linear equations, <b>AX = B</b>, with A EVD factorized.
         /// </summary>
         /// <param name="input">The right hand side <see cref="Matrix{T}"/>, <b>B</b>.</param>
         /// <returns>The left hand side <see cref="Matrix{T}"/>, <b>X</b>.</returns>
         public virtual Matrix<T> Solve(Matrix<T> input)
         {
-            var result = EigenVectors.CreateMatrix(EigenVectors.ColumnCount, input.ColumnCount);
-            Solve(input, result);
-            return result;
+            var x = Matrix<T>.Build.SameAs(EigenVectors, EigenVectors.ColumnCount, input.ColumnCount, fullyMutable: true);
+            Solve(input, x);
+            return x;
         }
 
         /// <summary>
-        /// Solves a system of linear equations, <b>AX = B</b>, with A SVD factorized.
+        /// Solves a system of linear equations, <b>AX = B</b>, with A EVD factorized.
         /// </summary>
         /// <param name="input">The right hand side <see cref="Matrix{T}"/>, <b>B</b>.</param>
         /// <param name="result">The left hand side <see cref="Matrix{T}"/>, <b>X</b>.</param>
         public abstract void Solve(Matrix<T> input, Matrix<T> result);
 
         /// <summary>
-        /// Solves a system of linear equations, <b>Ax = b</b>, with A SVD factorized.
+        /// Solves a system of linear equations, <b>Ax = b</b>, with A EVD factorized.
         /// </summary>
         /// <param name="input">The right hand side vector, <b>b</b>.</param>
         /// <returns>The left hand side <see cref="Vector{T}"/>, <b>x</b>.</returns>
         public virtual Vector<T> Solve(Vector<T> input)
         {
-            var x = EigenVectors.CreateVector(EigenVectors.ColumnCount);
+            var x = Vector<T>.Build.SameAs(EigenVectors, EigenVectors.ColumnCount);
             Solve(input, x);
             return x;
         }
 
         /// <summary>
-        /// Solves a system of linear equations, <b>Ax = b</b>, with A SVD factorized.
+        /// Solves a system of linear equations, <b>Ax = b</b>, with A EVD factorized.
         /// </summary>
         /// <param name="input">The right hand side vector, <b>b</b>.</param>
         /// <param name="result">The left hand side <see cref="Matrix{T}"/>, <b>x</b>.</param>

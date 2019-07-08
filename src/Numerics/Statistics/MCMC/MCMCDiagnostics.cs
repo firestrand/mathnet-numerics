@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -31,14 +30,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Properties;
 
-namespace MathNet.Numerics.Statistics.Mcmc.Diagnostics
+namespace MathNet.Numerics.Statistics.Mcmc
 {
     /// <summary>
     /// Provides utilities to analysis the convergence of a set of samples from
     /// a <seealso cref="McmcSampler{T}"/>.
     /// </summary>
-    static public class MCMCDiagnostics
+    public static class MCMCDiagnostics
     {
         /// <summary>
         /// Computes the auto correlations of a series evaluated by a function f.
@@ -49,17 +49,17 @@ namespace MathNet.Numerics.Statistics.Mcmc.Diagnostics
         /// <returns>The auto correlation.</returns>
         /// <exception cref="ArgumentOutOfRangeException">Throws if lag is zero or if lag is
         /// greater than or equal to the length of Series.</exception>
-        static public double ACF<T>(IEnumerable<T> series, int lag, Func<T,double> f)
+        public static double ACF<T>(IEnumerable<T> series, int lag, Func<T,double> f)
         {
             if (lag < 0)
             {
-                throw new ArgumentOutOfRangeException("lag", "Lag must be positive");
+                throw new ArgumentOutOfRangeException(nameof(lag), Resources.LagMustBePositive);
             }
 
             int length = series.Count();
             if (lag >= length)
             {
-                throw new ArgumentOutOfRangeException("lag", "Lag must be smaller than the sample size");
+                throw new ArgumentOutOfRangeException(nameof(lag), Resources.LagMustBeSmallerThanTheSampleSize);
             }
 
             var transformedSeries = series.Select(f);
@@ -77,7 +77,7 @@ namespace MathNet.Numerics.Statistics.Mcmc.Diagnostics
         /// <param name="series">The samples.</param>
         /// <param name="f">The function use for evaluating the series.</param>
         /// <returns>The effective size when auto correlation is taken into account.</returns>
-        static public double EffectiveSize<T>(IEnumerable<T> series, Func<T,double> f)
+        public static double EffectiveSize<T>(IEnumerable<T> series, Func<T,double> f)
         {
             int length = series.Count();
             double rho = ACF(series, 1, f);

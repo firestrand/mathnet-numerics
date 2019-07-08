@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 // 
 // Copyright (c) 2009-2013 Math.NET
 // 
@@ -56,6 +55,7 @@ namespace MathNet.Numerics.RootFinding
             {
                 return root;
             }
+
             throw new NonConvergenceException(Resources.RootFindingFailedRecommendRobustNewtonRaphson);
         }
 
@@ -76,6 +76,7 @@ namespace MathNet.Numerics.RootFinding
             {
                 return root;
             }
+
             throw new NonConvergenceException(Resources.RootFindingFailedRecommendRobustNewtonRaphson);
         }
 

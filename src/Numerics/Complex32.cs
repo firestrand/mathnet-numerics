@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -28,22 +27,20 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using Complex = System.Numerics.Complex;
+using BigInteger = System.Numerics.BigInteger;
+
+#if !NETSTANDARD1_3
+using System.Runtime;
+#endif
+
 namespace MathNet.Numerics
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-    using System.Runtime.InteropServices;
-
-#if !PORTABLE
-    using System.Runtime;
-#endif
-
-#if !NOSYSNUMERICS
-    using Complex = System.Numerics.Complex;
-    using BigInteger = System.Numerics.BigInteger;
-#endif
-
     /// <summary>
     /// 32-bit single precision complex numbers class.
     /// </summary>
@@ -72,16 +69,19 @@ namespace MathNet.Numerics
     /// </remarks>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Complex32 : IFormattable, IEquatable<Complex32>, IPrecisionSupport<Complex32>
+    [DataContract(Namespace = "urn:MathNet/Numerics")]
+    public struct Complex32 : IFormattable, IEquatable<Complex32>
     {
         /// <summary>
         /// The real component of the complex number.
         /// </summary>
+        [DataMember(Order = 1)]
         private readonly float _real;
 
         /// <summary>
         /// The imaginary component of the complex number.
         /// </summary>
+        [DataMember(Order = 2)]
         private readonly float _imag;
 
         /// <summary>
@@ -169,18 +169,43 @@ namespace MathNet.Numerics
         /// <returns>The phase or argument of this <c>Complex32</c></returns>
         public float Phase
         {
+            // NOTE: the special case for negative real numbers fixes negative-zero value behavior. Do not remove.
             [TargetedPatchingOptOut("Performance critical to inline this type of method across NGen image boundaries")]
-            get { return (float)Math.Atan2(_imag, _real); }
+            get { return _imag == 0f && _real < 0f ? (float)Constants.Pi : (float)Math.Atan2(_imag, _real); }
         }
 
         /// <summary>
         /// Gets the magnitude (or absolute value) of a complex number.
         /// </summary>
+        /// <remarks>Assuming that magnitude of (inf,a) and (a,inf) and (inf,inf) is inf and (NaN,a), (a,NaN) and (NaN,NaN) is NaN</remarks>
         /// <returns>The magnitude of the current instance.</returns>
         public float Magnitude
         {
             [TargetedPatchingOptOut("Performance critical to inline this type of method across NGen image boundaries")]
-            get { return (float)Math.Sqrt((_real * _real) + (_imag * _imag)); }
+            get
+            {
+                if (float.IsNaN(_real) || float.IsNaN(_imag))
+                    return float.NaN;
+                if (float.IsInfinity(_real) || float.IsInfinity(_imag))
+                    return float.PositiveInfinity;
+                float a = Math.Abs(_real);
+                float b = Math.Abs(_imag);
+                if (a > b)
+                {
+                    double tmp = b / a;
+                    return a * (float)Math.Sqrt(1.0f + tmp * tmp);
+
+                }
+                if (a == 0.0f) // one can write a >= float.Epsilon here
+                {
+                    return b;
+                }
+                else
+                {
+                    double tmp = a / b;
+                    return b * (float)Math.Sqrt(1.0f + tmp * tmp);
+                }
+            }
         }
 
         /// <summary>
@@ -468,6 +493,29 @@ namespace MathNet.Numerics
         }
 
         /// <summary>
+        /// Evaluate all square roots of this <c>Complex32</c>.
+        /// </summary>
+        public Tuple<Complex32, Complex32> SquareRoots()
+        {
+            var principal = SquareRoot();
+            return new Tuple<Complex32, Complex32>(principal, -principal);
+        }
+
+        /// <summary>
+        /// Evaluate all cubic roots of this <c>Complex32</c>.
+        /// </summary>
+        public Tuple<Complex32, Complex32, Complex32> CubicRoots()
+        {
+            float r = (float)Math.Pow(Magnitude, 1d / 3d);
+            float theta = Phase / 3;
+            const float shift = (float)Constants.Pi2 / 3;
+            return new Tuple<Complex32, Complex32, Complex32>(
+                FromPolarCoordinates(r, theta),
+                FromPolarCoordinates(r, theta + shift),
+                FromPolarCoordinates(r, theta - shift));
+        }
+
+        /// <summary>
         /// Equality test.
         /// </summary>
         /// <param name="complex1">One of complex numbers to compare.</param>
@@ -593,6 +641,8 @@ namespace MathNet.Numerics
         }
 
         /// <summary>Division operator. Divides a complex number by another.</summary>
+        /// <remarks>Enhanced Smith's algorithm for dividing two complex numbers </remarks>
+        /// <see cref="InternalDiv(float, float, float, float, bool)"/>
         /// <returns>The result of the division.</returns>
         /// <param name="dividend">The dividend.</param>
         /// <param name="divisor">The divisor.</param>
@@ -607,14 +657,46 @@ namespace MathNet.Numerics
             {
                 return PositiveInfinity;
             }
-
-            var modSquared = divisor.MagnitudeSquared;
-            return new Complex32(
-                ((dividend._real * divisor._real) + (dividend._imag * divisor._imag)) / modSquared,
-                ((dividend._imag * divisor._real) - (dividend._real * divisor._imag)) / modSquared);
+            float a = dividend.Real;
+            float b = dividend.Imaginary;
+            float c = divisor.Real;
+            float d = divisor.Imaginary;
+            if (Math.Abs(d) <= Math.Abs(c))
+                return InternalDiv(a, b, c, d, false);
+            return InternalDiv(b, a, d, c, true);
+        }
+        /// <summary>
+        ///  Helper method for dividing.
+        /// </summary>
+        /// <param name="a">Re first</param>
+        /// <param name="b">Im first</param>
+        /// <param name="c">Re second</param>
+        /// <param name="d">Im second</param>
+        /// <param name="swapped"></param>
+        /// <returns></returns>
+        private static Complex32 InternalDiv(float a, float b, float c, float d, bool swapped)
+        {
+            float r = d / c;
+            float t = 1 / (c + d * r);
+            float e, f;
+            if (r != 0.0f) // one can use r >= float.Epsilon || r <= float.Epsilon instead
+            {
+                e = (a + b * r) * t;
+                f = (b - a * r) * t;
+            }
+            else
+            {
+                e = (a + d * (b / c)) * t;
+                f = (b - d * (a / c)) * t;
+            }
+            if (swapped)
+                f = -f;
+            return new Complex32(e, f);
         }
 
         /// <summary>Division operator. Divides a float value by a complex number.</summary>
+        /// <remarks>Algorithm based on Smith's algorithm</remarks>
+        /// <see cref="InternalDiv(float, float, float, float, bool)"/>
         /// <returns>The result of the division.</returns>
         /// <param name="dividend">The dividend.</param>
         /// <param name="divisor">The divisor.</param>
@@ -629,9 +711,11 @@ namespace MathNet.Numerics
             {
                 return PositiveInfinity;
             }
-
-            var zmod = divisor.MagnitudeSquared;
-            return new Complex32(dividend * divisor._real / zmod, -dividend * divisor._imag / zmod);
+            float c = divisor.Real;
+            float d = divisor.Imaginary;
+            if (Math.Abs(d) <= Math.Abs(c))
+                return InternalDiv(dividend, 0, c, d, false);
+            return InternalDiv(0, dividend, d, c, true);
         }
 
         /// <summary>Division operator. Divides a complex number by a float value.</summary>
@@ -791,37 +875,6 @@ namespace MathNet.Numerics
 
         #endregion
 
-        #region IPrecisionSupport<Complex32>
-
-        /// <summary>
-        /// Returns a Norm of a value of this type, which is appropriate for measuring how
-        /// close this value is to zero.
-        /// </summary>
-        /// <returns>
-        /// A norm of this value.
-        /// </returns>
-        double IPrecisionSupport<Complex32>.Norm()
-        {
-            return MagnitudeSquared;
-        }
-
-        /// <summary>
-        /// Returns a Norm of the difference of two values of this type, which is
-        /// appropriate for measuring how close together these two values are.
-        /// </summary>
-        /// <param name="otherValue">
-        /// The value to compare with.
-        /// </param>
-        /// <returns>
-        /// A norm of the difference between this and the other value.
-        /// </returns>
-        double IPrecisionSupport<Complex32>.NormOfDifference(Complex32 otherValue)
-        {
-            return (this - otherValue).MagnitudeSquared;
-        }
-
-        #endregion
-
         #region Parse Functions
 
         /// <summary>
@@ -843,7 +896,7 @@ namespace MathNet.Numerics
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
             }
 
             value = value.Trim();
@@ -975,7 +1028,7 @@ namespace MathNet.Numerics
                 }
             }
 
-#if PORTABLE
+#if NETSTANDARD1_3
             var value = GlobalizationHelper.ParseSingle(ref token);
 #else
             var value = GlobalizationHelper.ParseSingle(ref token, format.GetCultureInfo());
@@ -1112,9 +1165,9 @@ namespace MathNet.Numerics
         }
 
         /// <summary>
-        /// Implicit conversion of a unsgined real short to a <c>Complex32</c>.
+        /// Implicit conversion of a unsigned real short to a <c>Complex32</c>.
         /// </summary>
-        /// <param name="value">The unsgined short value to convert.</param>
+        /// <param name="value">The unsigned short value to convert.</param>
         /// <returns>The result of the conversion.</returns>
         [CLSCompliant(false)]
         public static implicit operator Complex32(ushort value)
@@ -1132,7 +1185,6 @@ namespace MathNet.Numerics
             return new Complex32(value, 0.0f);
         }
 
-#if !NOSYSNUMERICS
         /// <summary>
         /// Implicit conversion of a BigInteger int to a <c>Complex32</c>.
         /// </summary>
@@ -1142,7 +1194,6 @@ namespace MathNet.Numerics
         {
             return new Complex32((long)value, 0.0f);
         }
-#endif
 
         /// <summary>
         /// Implicit conversion of a real long to a <c>Complex32</c>.
@@ -1276,7 +1327,6 @@ namespace MathNet.Numerics
         {
             return dividend / divisor;
         }
-
         /// <summary>
         /// Returns the multiplicative inverse of a complex number.
         /// </summary>

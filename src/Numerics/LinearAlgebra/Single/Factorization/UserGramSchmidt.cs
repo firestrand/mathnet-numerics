@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -43,7 +42,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
     internal sealed class UserGramSchmidt : GramSchmidt
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="UserGramSchmidt"/> class. This object creates an orthogonal matrix 
+        /// Initializes a new instance of the <see cref="UserGramSchmidt"/> class. This object creates an orthogonal matrix
         /// using the modified Gram-Schmidt method.
         /// </summary>
         /// <param name="matrix">The matrix to factor.</param>
@@ -58,7 +57,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
             }
 
             var q = matrix.Clone();
-            var r = matrix.CreateMatrix(matrix.ColumnCount, matrix.ColumnCount);
+            var r = Matrix<float>.Build.SameAs(matrix, matrix.ColumnCount, matrix.ColumnCount, fullyMutable: true);
 
             for (var k = 0; k < q.ColumnCount; k++)
             {
@@ -120,7 +119,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Factorization
             }
 
             var inputCopy = input.Clone();
-            
+
             // Compute Y = transpose(Q)*B
             var column = new float[Q.RowCount];
             for (var j = 0; j < input.ColumnCount; j++)

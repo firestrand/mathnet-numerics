@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2011 Math.NET
 //
@@ -29,14 +28,10 @@
 // </copyright>
 
 using System;
+using Complex = System.Numerics.Complex;
 
 namespace MathNet.Numerics
 {
-
-#if !NOSYSNUMERICS
-    using Complex = System.Numerics.Complex;
-#endif
-
     /// <summary>
     /// Useful extension methods for Arrays.
     /// </summary>
@@ -71,7 +66,7 @@ namespace MathNet.Numerics
         {
             Array.Copy(source, 0, dest, 0, source.Length);
         }
-        
+
         /// <summary>
         /// Copies the values from on array to another.
         /// </summary>

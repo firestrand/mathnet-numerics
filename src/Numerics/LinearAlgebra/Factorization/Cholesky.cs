@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -66,13 +65,19 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         public abstract T DeterminantLn { get; }
 
         /// <summary>
+        /// Calculates the Cholesky factorization of the input matrix.
+        /// </summary>
+        /// <param name="matrix">The matrix to be factorized<see cref="Matrix{T}"/>.</param>
+        public abstract void Factorize(Matrix<T> matrix);
+
+        /// <summary>
         /// Solves a system of linear equations, <b>AX = B</b>, with A Cholesky factorized.
         /// </summary>
         /// <param name="input">The right hand side <see cref="Matrix{T}"/>, <b>B</b>.</param>
         /// <returns>The left hand side <see cref="Matrix{T}"/>, <b>X</b>.</returns>
         public virtual Matrix<T> Solve(Matrix<T> input)
         {
-            var x = input.CreateMatrix(input.RowCount, input.ColumnCount);
+            var x = Matrix<T>.Build.SameAs(input, input.RowCount, input.ColumnCount, fullyMutable: true);
             Solve(input, x);
             return x;
         }
@@ -91,7 +96,7 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         /// <returns>The left hand side <see cref="Vector{T}"/>, <b>x</b>.</returns>
         public virtual Vector<T> Solve(Vector<T> input)
         {
-            var x = input.CreateVector(input.Count);
+            var x = Vector<T>.Build.SameAs(input, input.Count);
             Solve(input, x);
             return x;
         }

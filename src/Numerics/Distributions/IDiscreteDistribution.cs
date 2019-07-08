@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -44,11 +43,6 @@ namespace MathNet.Numerics.Distributions
         int Mode { get; }
 
         /// <summary>
-        /// Gets the median of the distribution.
-        /// </summary>
-        int Median { get; }
-
-        /// <summary>
         /// Gets the smallest element in the domain of the distribution which can be represented by an integer.
         /// </summary>
         int Minimum { get; }
@@ -77,6 +71,11 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         /// <returns>a sample from the distribution.</returns>
         int Sample();
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        void Samples(int[] values);
 
         /// <summary>
         /// Draws a sequence of random samples from the distribution.

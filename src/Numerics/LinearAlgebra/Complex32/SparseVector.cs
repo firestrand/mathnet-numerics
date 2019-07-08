@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -28,11 +27,12 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-using MathNet.Numerics.LinearAlgebra.Storage;
-using MathNet.Numerics.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using MathNet.Numerics.LinearAlgebra.Storage;
+using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex32
 {
@@ -116,8 +116,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// </summary>
         public static SparseVector Create(int length, Complex32 value)
         {
-            if (value == Complex32.Zero) return new SparseVector(length);
-            return new SparseVector(SparseVectorStorage<Complex32>.OfInit(length, i => value));
+            return new SparseVector(SparseVectorStorage<Complex32>.OfValue(length, value));
         }
 
         /// <summary>
@@ -126,44 +125,6 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         public static SparseVector Create(int length, Func<int, Complex32> init)
         {
             return new SparseVector(SparseVectorStorage<Complex32>.OfInit(length, init));
-        }
-
-        /// <summary>
-        /// Conjugates vector and save result to <paramref name="result"/>
-        /// </summary>
-        /// <param name="result">Target vector</param>
-        protected override void DoConjugate(Vector<Complex32> result)
-        {
-            if (ReferenceEquals(this, result))
-            {
-                var tmp = CreateVector(Count);
-                DoConjugate(tmp);
-                tmp.CopyTo(result);
-            }
-
-            var targetSparse = result as SparseVector;
-            if (targetSparse == null)
-            {
-                base.DoConjugate(result);
-                return;
-            }
-
-            // Lets copy only needed data. Portion of needed data is determined by NonZerosCount value
-            targetSparse._storage.Values = new Complex32[_storage.ValueCount];
-            targetSparse._storage.Indices = new int[_storage.ValueCount];
-            targetSparse._storage.ValueCount = _storage.ValueCount;
-
-            if (_storage.ValueCount != 0)
-            {
-                CommonParallel.For(0, _storage.ValueCount, (a, b) =>
-                    {
-                        for (int i = a; i < b; i++)
-                        {
-                            targetSparse._storage.Values[i] = _storage.Values[i].Conjugate();
-                        }
-                    });
-                Buffer.BlockCopy(_storage.Indices, 0, targetSparse._storage.Indices, 0, _storage.ValueCount*Constants.SizeOfInt);
-            }
         }
 
         /// <summary>
@@ -191,7 +152,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
 
             if (ReferenceEquals(this, result))
             {
-                //populate a new vector with the scalar   
+                //populate a new vector with the scalar
                 var vnonZeroValues = new Complex32[Count];
                 var vnonZeroIndices = new int[Count];
                 for (int index = 0; index < Count; index++)
@@ -208,7 +169,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
                     vnonZeroValues[indices[j]] = values[j] + scalar;
                 }
 
-                //assign this vectors arrary to the new arrays. 
+                //assign this vectors array to the new arrays.
                 _storage.Values = vnonZeroValues;
                 _storage.Indices = vnonZeroIndices;
                 _storage.ValueCount = Count;
@@ -422,19 +383,47 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
                 {
                     result.At(_storage.Indices[index], -_storage.Values[index]);
                 }
+                return;
             }
-            else
+
+            if (!ReferenceEquals(this, result))
+            {
+                sparseResult._storage.ValueCount = _storage.ValueCount;
+                sparseResult._storage.Indices = new int[_storage.ValueCount];
+                Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount*Constants.SizeOfInt);
+                sparseResult._storage.Values = new Complex32[_storage.ValueCount];
+                Array.Copy(_storage.Values, 0, sparseResult._storage.Values, 0, _storage.ValueCount);
+            }
+
+            LinearAlgebraControl.Provider.ScaleArray(-Complex32.One, sparseResult._storage.Values, sparseResult._storage.Values);
+        }
+
+        /// <summary>
+        /// Conjugates vector and save result to <paramref name="result"/>
+        /// </summary>
+        /// <param name="result">Target vector</param>
+        protected override void DoConjugate(Vector<Complex32> result)
+        {
+            var sparseResult = result as SparseVector;
+            if (sparseResult != null)
             {
                 if (!ReferenceEquals(this, result))
                 {
                     sparseResult._storage.ValueCount = _storage.ValueCount;
                     sparseResult._storage.Indices = new int[_storage.ValueCount];
-                    Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount * Constants.SizeOfInt);
+                    Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount*Constants.SizeOfInt);
                     sparseResult._storage.Values = new Complex32[_storage.ValueCount];
-                    Array.Copy(_storage.Values, sparseResult._storage.Values, _storage.ValueCount);
+                    Array.Copy(_storage.Values, 0, sparseResult._storage.Values, 0, _storage.ValueCount);
                 }
 
-                Control.LinearAlgebraProvider.ScaleArray(-Complex32.One, sparseResult._storage.Values, sparseResult._storage.Values);
+                LinearAlgebraControl.Provider.ConjugateArray(sparseResult._storage.Values, sparseResult._storage.Values);
+                return;
+            }
+
+            result.Clear();
+            for (var index = 0; index < _storage.ValueCount; index++)
+            {
+                result.At(_storage.Indices[index], _storage.Values[index].Conjugate());
             }
         }
 
@@ -466,10 +455,10 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
                     sparseResult._storage.Indices = new int[_storage.ValueCount];
                     Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount * Constants.SizeOfInt);
                     sparseResult._storage.Values = new Complex32[_storage.ValueCount];
-                    Array.Copy(_storage.Values, sparseResult._storage.Values, _storage.ValueCount);
+                    Array.Copy(_storage.Values, 0, sparseResult._storage.Values, 0, _storage.ValueCount);
                 }
 
-                Control.LinearAlgebraProvider.ScaleArray(scalar, sparseResult._storage.Values, sparseResult._storage.Values);
+                LinearAlgebraControl.Provider.ScaleArray(scalar, sparseResult._storage.Values, sparseResult._storage.Values);
             }
         }
 
@@ -535,14 +524,14 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Add(rightSide);
         }
 
         /// <summary>
-        /// Returns a <strong>Vector</strong> containing the negated values of <paramref name="rightSide"/>. 
+        /// Returns a <strong>Vector</strong> containing the negated values of <paramref name="rightSide"/>.
         /// </summary>
         /// <param name="rightSide">The vector to get the values from.</param>
         /// <returns>A vector containing the negated values as <paramref name="rightSide"/>.</returns>
@@ -551,7 +540,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (SparseVector)rightSide.Negate();
@@ -569,7 +558,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Subtract(rightSide);
@@ -586,7 +575,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Multiply(rightSide);
@@ -603,7 +592,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (SparseVector)rightSide.Multiply(leftSide);
@@ -621,7 +610,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return leftSide.DotProduct(rightSide);
@@ -638,7 +627,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Divide(rightSide);
@@ -655,7 +644,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Modulus(rightSide);
@@ -664,7 +653,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <summary>
         /// Returns the index of the absolute minimum element.
         /// </summary>
-        /// <returns>The index of absolute minimum element.</returns>   
+        /// <returns>The index of absolute minimum element.</returns>
         public override int AbsoluteMinimumIndex()
         {
             if (_storage.ValueCount == 0)
@@ -682,6 +671,33 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
                 {
                     index = i;
                     min = test;
+                }
+            }
+
+            return _storage.Indices[index];
+        }
+
+        /// <summary>
+        /// Returns the index of the absolute maximum element.
+        /// </summary>
+        /// <returns>The index of absolute maximum element.</returns>
+        public override int AbsoluteMaximumIndex()
+        {
+            if (_storage.ValueCount == 0)
+            {
+                // No non-zero elements. Return 0
+                return 0;
+            }
+
+            var index = 0;
+            var max = _storage.Values[index].Magnitude;
+            for (var i = 1; i < _storage.ValueCount; i++)
+            {
+                var test = _storage.Values[i].Magnitude;
+                if (test > max)
+                {
+                    index = i;
+                    max = test;
                 }
             }
 
@@ -719,7 +735,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public override double InfinityNorm()
         {
             return CommonParallel.Aggregate(0, _storage.ValueCount, i => _storage.Values[i].Magnitude, Math.Max, 0f);
@@ -732,7 +748,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <returns>Scalar <c>ret = ( ∑|this[i]|^p )^(1/p)</c></returns>
         public override double Norm(double p)
         {
-            if (p < 0d) throw new ArgumentOutOfRangeException("p");
+            if (p < 0d) throw new ArgumentOutOfRangeException(nameof(p));
 
             if (_storage.ValueCount == 0)
             {
@@ -758,7 +774,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         /// <param name="result">The vector to store the result of the pointwise multiplication.</param>
         protected override void DoPointwiseMultiply(Vector<Complex32> other, Vector<Complex32> result)
         {
-            if (ReferenceEquals(this, other))
+            if (ReferenceEquals(this, other) && ReferenceEquals(this, result))
             {
                 for (var i = 0; i < _storage.ValueCount; i++)
                 {
@@ -767,83 +783,8 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
             }
             else
             {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    var index = _storage.Indices[i];
-                    result.At(index, other.At(index) * _storage.Values[i]);
-                }
+                base.DoPointwiseMultiply(other, result);
             }
-        }
-
-        /// <summary>
-        /// Pointwise multiplies this vector with another vector and stores the result into the result vector.
-        /// </summary>
-        /// <param name="divisor">The vector to pointwise multiply with this one.</param>
-        /// <param name="result">The vector to store the result of the pointwise multiplication.</param>
-        protected override void DoPointwiseDivide(Vector<Complex32> divisor, Vector<Complex32> result)
-        {
-            if (ReferenceEquals(this, divisor))
-            {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    _storage.Values[i] /= _storage.Values[i];
-                }
-            }
-            else
-            {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    var index = _storage.Indices[i];
-                    result.At(index, _storage.Values[i] / divisor.At(index));
-                }
-            }
-        }
-
-        /// <summary>
-        /// Outer product of two vectors
-        /// </summary>
-        /// <param name="u">First vector</param>
-        /// <param name="v">Second vector</param>
-        /// <returns>Matrix M[i,j] = u[i]*v[j] </returns>
-        /// <exception cref="ArgumentNullException">If the u vector is <see langword="null" />.</exception> 
-        /// <exception cref="ArgumentNullException">If the v vector is <see langword="null" />.</exception> 
-        public static Matrix<Complex32> /*SparseMatrix*/ OuterProduct(SparseVector u, SparseVector v)
-        {
-            if (u == null)
-            {
-                throw new ArgumentNullException("u");
-            }
-
-            if (v == null)
-            {
-                throw new ArgumentNullException("v");
-            }
-
-            var matrix = new SparseMatrix(u.Count, v.Count);
-            for (var i = 0; i < u._storage.ValueCount; i++)
-            {
-                for (var j = 0; j < v._storage.ValueCount; j++)
-                {
-                    if (u._storage.Indices[i] == v._storage.Indices[j])
-                    {
-                        matrix.At(i, j, u._storage.Values[i] * v._storage.Values[j]);
-                    }
-                }
-            }
-
-            return matrix;
-        }
-
-        /// <summary>
-        /// Outer product of this and another vector.
-        /// </summary>
-        /// <param name="v">The vector to operate on.</param>
-        /// <returns>
-        /// Matrix M[i,j] = this[i] * v[j].
-        /// </returns>
-        public Matrix<Complex32> OuterProduct(SparseVector v)
-        {
-            return OuterProduct(this, v);
         }
 
         #region Parse Functions
@@ -865,7 +806,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
             }
 
             value = value.Trim();

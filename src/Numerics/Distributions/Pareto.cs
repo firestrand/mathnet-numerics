@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -30,43 +29,47 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Random;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
     /// <summary>
     /// Continuous Univariate Pareto distribution.
-    /// The Pareto distribution is a power law probability distribution that coincides with social, 
+    /// The Pareto distribution is a power law probability distribution that coincides with social,
     /// scientific, geophysical, actuarial, and many other types of observable phenomena.
-    /// For details about this distribution, see 
+    /// For details about this distribution, see
     /// <a href="http://en.wikipedia.org/wiki/Pareto_distribution">Wikipedia - Pareto distribution</a>.
     /// </summary>
-    /// <remarks><para>The distribution will use the <see cref="System.Random"/> by default. 
-    /// Users can get/set the random number generator by using the <see cref="RandomSource"/> property.</para>
-    /// <para>The statistics classes will check all the incoming parameters whether they are in the allowed
-    /// range. This might involve heavy computation. Optionally, by setting Control.CheckDistributionParameters
-    /// to <c>false</c>, all parameter checks can be turned off.</para></remarks>
     public class Pareto : IContinuousDistribution
     {
         System.Random _random;
 
-        double _scale;
-        double _shape;
+        readonly double _scale;
+        readonly double _shape;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Pareto"/> class. 
+        /// Initializes a new instance of the <see cref="Pareto"/> class.
         /// </summary>
         /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
         /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
         /// <exception cref="ArgumentException">If <paramref name="scale"/> or <paramref name="shape"/> are negative.</exception>
         public Pareto(double scale, double shape)
         {
-            _random = new System.Random();
-            SetParameters(scale, shape);
+            if (!IsValidParameterSet(scale, shape))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = SystemRandomSource.Default;
+            _scale = scale;
+            _shape = shape;
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Pareto"/> class. 
+        /// Initializes a new instance of the <see cref="Pareto"/> class.
         /// </summary>
         /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
         /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
@@ -74,8 +77,14 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If <paramref name="scale"/> or <paramref name="shape"/> are negative.</exception>
         public Pareto(double scale, double shape, System.Random randomSource)
         {
-            _random = randomSource ?? new System.Random();
-            SetParameters(scale, shape);
+            if (!IsValidParameterSet(scale, shape))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = randomSource ?? SystemRandomSource.Default;
+            _scale = scale;
+            _shape = shape;
         }
 
         /// <summary>
@@ -88,38 +97,29 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
         /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double scale, double shape)
+        public static bool IsValidParameterSet(double scale, double shape)
         {
-            if (scale <= 0.0 || shape <= 0.0 || Double.IsNaN(scale) || Double.IsNaN(shape))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _scale = scale;
-            _shape = shape;
+            return scale > 0.0 && shape > 0.0;
         }
 
         /// <summary>
-        /// Gets or sets the scale (xm) of the distribution. Range: xm > 0.
+        /// Gets the scale (xm) of the distribution. Range: xm > 0.
         /// </summary>
         public double Scale
         {
             get { return _scale; }
-            set { SetParameters(value, _shape); }
         }
 
         /// <summary>
-        /// Gets or sets the shape (α) of the distribution. Range: α > 0.
+        /// Gets the shape (α) of the distribution. Range: α > 0.
         /// </summary>
         public double Shape
         {
             get { return _shape; }
-            set { SetParameters(_scale, value); }
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace MathNet.Numerics.Distributions
         public System.Random RandomSource
         {
             get { return _random; }
-            set { _random = value ?? new System.Random(); }
+            set { _random = value ?? SystemRandomSource.Default; }
         }
 
         /// <summary>
@@ -216,7 +216,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Maximum
         {
-            get { return Double.PositiveInfinity; }
+            get { return double.PositiveInfinity; }
         }
 
         /// <summary>
@@ -270,7 +270,15 @@ namespace MathNet.Numerics.Distributions
         /// <returns>A random number from this distribution.</returns>
         public double Sample()
         {
-            return _scale*Math.Pow(_random.NextDouble(), -1.0/_shape);
+            return SampleUnchecked(_random, _scale, _shape);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _scale, _shape);
         }
 
         /// <summary>
@@ -279,11 +287,31 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
-            var power = -1.0/_shape;
-            while (true)
+            return SamplesUnchecked(_random, _scale, _shape);
+        }
+
+        static double SampleUnchecked(System.Random rnd, double scale, double shape)
+        {
+            return scale*Math.Pow(rnd.NextDouble(), -1.0/shape);
+        }
+
+        static IEnumerable<double> SamplesUnchecked(System.Random rnd, double scale, double shape)
+        {
+            var power = -1.0/shape;
+            return rnd.NextDoubleSequence().Select(x => scale*Math.Pow(x, power));
+        }
+
+        static void SamplesUnchecked(System.Random rnd, double[] values, double scale, double shape)
+        {
+            var power = -1.0/shape;
+            rnd.NextDoubles(values);
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
             {
-                yield return _scale*Math.Pow(_random.NextDouble(), power);
-            }
+                for (int i = a; i < b; i++)
+                {
+                    values[i] = scale*Math.Pow(values[i], power);
+                }
+            });
         }
 
         /// <summary>
@@ -296,7 +324,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="Density"/>
         public static double PDF(double scale, double shape, double x)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return shape*Math.Pow(scale, shape)/Math.Pow(x, shape + 1.0);
         }
@@ -311,7 +342,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double scale, double shape, double x)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return Math.Log(shape) + shape*Math.Log(scale) - (shape + 1.0)*Math.Log(x);
         }
@@ -326,7 +360,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="CumulativeDistribution"/>
         public static double CDF(double scale, double shape, double x)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return 1.0 - Math.Pow(scale/x, shape);
         }
@@ -342,7 +379,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="InverseCumulativeDistribution"/>
         public static double InvCDF(double scale, double shape, double p)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return scale*Math.Pow(1.0 - p, -1.0/shape);
         }
@@ -356,7 +396,10 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public static double Sample(System.Random rnd, double scale, double shape)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return scale*Math.Pow(rnd.NextDouble(), -1.0/shape);
         }
@@ -370,13 +413,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double scale, double shape)
         {
-            if (scale <= 0.0 || shape <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-
-            var power = -1.0 / shape;
-            while (true)
+            if (scale <= 0.0 || shape <= 0.0)
             {
-                yield return scale*Math.Pow(rnd.NextDouble(), power);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, scale, shape);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
+        /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double scale, double shape)
+        {
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, scale, shape);
+        }
+
+        /// <summary>
+        /// Generates a sample from the distribution.
+        /// </summary>
+        /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
+        /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double scale, double shape)
+        {
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, scale, shape);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the distribution.
+        /// </summary>
+        /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
+        /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double scale, double shape)
+        {
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, scale, shape);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="scale">The scale (xm) of the distribution. Range: xm > 0.</param>
+        /// <param name="shape">The shape (α) of the distribution. Range: α > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double scale, double shape)
+        {
+            if (scale <= 0.0 || shape <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, scale, shape);
         }
     }
 }

@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -38,7 +37,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
     /// <para>A class which encapsulates the functionality of an LU factorization.</para>
     /// <para>For a matrix A, the LU factorization is a pair of lower triangular matrix L and
     /// upper triangular matrix U so that A = L*U.</para>
-    /// <para>In the Math.Net implementation we also store a set of pivot elements for increased 
+    /// <para>In the Math.Net implementation we also store a set of pivot elements for increased
     /// numerical stability. The pivot elements encode a permutation matrix P such that P*A = L*U.</para>
     /// </summary>
     /// <remarks>

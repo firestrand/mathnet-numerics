@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009 Math.NET
 //
@@ -40,17 +39,16 @@ open System.Runtime.InteropServices
 [<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyCompany("Math.NET Project")>]
 [<assembly: AssemblyProduct("Math.NET Numerics")>]
-[<assembly: AssemblyCopyright("Copyright © Math.NET Project")>]
+[<assembly: AssemblyCopyright("Copyright (c) Math.NET Project")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
 [<assembly: NeutralResourcesLanguage("en")>]
-[<assembly: AssemblyVersion("1.0.0.0")>]
-[<assembly: AssemblyFileVersion("1.0.0.0")>]
 
-#if PORTABLE
-#else
+[<assembly: AssemblyVersion("4.8.1.0")>]
+[<assembly: AssemblyFileVersion("4.8.1.0")>]
+[<assembly: AssemblyInformationalVersion("4.8.1")>]
+
 [<assembly: ComVisible(false)>]
 [<assembly: Guid("048BC4EB-CE2B-4040-9967-4784F5405B0F")>]
-#endif
 
 ()

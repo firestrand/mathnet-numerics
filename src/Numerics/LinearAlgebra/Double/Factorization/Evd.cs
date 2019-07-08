@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -32,12 +31,7 @@ using MathNet.Numerics.LinearAlgebra.Factorization;
 
 namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Complex = Numerics.Complex;
-#else
     using Complex = System.Numerics.Complex;
-#endif
 
     /// <summary>
     /// Eigenvalues and eigenvectors of a real matrix.
@@ -53,6 +47,10 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
     /// i.e. A.Multiply(V) equals V.Multiply(D).  The matrix V may be badly
     /// conditioned, or even singular, so the validity of the equation
     /// A = V*D*Inverse(V) depends upon V.Condition().
+    /// Matrix V is encoded in the property EigenVectors in the way that:
+    ///  - column corresponding to real eigenvalue represents real eigenvector,
+    ///  - columns corresponding to the pair of complex conjugate eigenvalues
+    ///    lambda[i] and lambda[i+1] encode real and imaginary parts of eigenvectors.
     /// </remarks>
     internal abstract class Evd : Evd<double>
     {

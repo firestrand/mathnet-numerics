@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2011 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -33,12 +32,13 @@
 //    ALGLIB 2.0.1, Sergey Bochkanov
 // </contribution>
 
+using System;
+using MathNet.Numerics.Properties;
+
 // ReSharper disable CheckNamespace
 namespace MathNet.Numerics
 // ReSharper restore CheckNamespace
 {
-    using System;
-    using Properties;
 
     public static partial class SpecialFunctions
     {
@@ -53,12 +53,12 @@ namespace MathNet.Numerics
         {
             if (z <= 0.0)
             {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "z");
+                throw new ArgumentException(Resources.ArgumentMustBePositive, nameof(z));
             }
 
             if (w <= 0.0)
             {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "w");
+                throw new ArgumentException(Resources.ArgumentMustBePositive, nameof(w));
             }
 
             return GammaLn(z) + GammaLn(w) - GammaLn(z + w);
@@ -78,7 +78,7 @@ namespace MathNet.Numerics
 
         /// <summary>
         /// Returns the lower incomplete (unregularized) beta function
-        /// I_x(a,b) = int(t^(a-1)*(1-t)^(b-1),t=0..x) for real a &gt; 0, b &gt; 0, 1 &gt;= x &gt;= 0.
+        /// B(a,b,x) = int(t^(a-1)*(1-t)^(b-1),t=0..x) for real a &gt; 0, b &gt; 0, 1 &gt;= x &gt;= 0.
         /// </summary>
         /// <param name="a">The first Beta parameter, a positive real number.</param>
         /// <param name="b">The second Beta parameter, a positive real number.</param>
@@ -86,7 +86,7 @@ namespace MathNet.Numerics
         /// <returns>The lower incomplete (unregularized) beta function.</returns>
         public static double BetaIncomplete(double a, double b, double x)
         {
-            return BetaRegularized(a, b, x) * Beta(a, b);
+            return BetaRegularized(a, b, x)*Beta(a, b);
         }
 
         /// <summary>
@@ -101,29 +101,28 @@ namespace MathNet.Numerics
         {
             if (a < 0.0)
             {
-                throw new ArgumentOutOfRangeException("a", Resources.ArgumentNotNegative);
+                throw new ArgumentOutOfRangeException(nameof(a), Resources.ArgumentNotNegative);
             }
 
             if (b < 0.0)
             {
-                throw new ArgumentOutOfRangeException("b", Resources.ArgumentNotNegative);
+                throw new ArgumentOutOfRangeException(nameof(b), Resources.ArgumentNotNegative);
             }
 
             if (x < 0.0 || x > 1.0)
             {
-                throw new ArgumentOutOfRangeException("x", Resources.ArgumentInIntervalXYInclusive);
+                throw new ArgumentOutOfRangeException(nameof(x), Resources.ArgumentInIntervalXYInclusive);
             }
 
             var bt = (x == 0.0 || x == 1.0)
-                         ? 0.0
-                         : Math.Exp(GammaLn(a + b) - GammaLn(a) - GammaLn(b) + (a * Math.Log(x)) + (b * Math.Log(1.0 - x)));
+                ? 0.0
+                : Math.Exp(GammaLn(a + b) - GammaLn(a) - GammaLn(b) + (a*Math.Log(x)) + (b*Math.Log(1.0 - x)));
 
-            var symmetryTransformation = x >= (a + 1.0) / (a + b + 2.0);
+            var symmetryTransformation = x >= (a + 1.0)/(a + b + 2.0);
 
             /* Continued fraction representation */
-            const int maxIterations = 100;
-            var eps = Precision.DoubleMachinePrecision;
-            var fpmin = 0.0.Increment() / eps;
+            var eps = Precision.DoublePrecision;
+            var fpmin = 0.0.Increment()/eps;
 
             if (symmetryTransformation)
             {
@@ -137,65 +136,60 @@ namespace MathNet.Numerics
             var qap = a + 1.0;
             var qam = a - 1.0;
             var c = 1.0;
-            var d = 1.0 - (qab * x / qap);
+            var d = 1.0 - (qab*x/qap);
 
             if (Math.Abs(d) < fpmin)
             {
                 d = fpmin;
             }
 
-            d = 1.0 / d;
+            d = 1.0/d;
             var h = d;
 
-            for (int m = 1, m2 = 2; m <= maxIterations; m++, m2 += 2)
+            for (int m = 1, m2 = 2; m <= 50000; m++, m2 += 2)
             {
-                var aa = m * (b - m) * x / ((qam + m2) * (a + m2));
-                d = 1.0 + (aa * d);
+                var aa = m*(b - m)*x/((qam + m2)*(a + m2));
+                d = 1.0 + (aa*d);
 
                 if (Math.Abs(d) < fpmin)
                 {
                     d = fpmin;
                 }
 
-                c = 1.0 + (aa / c);
+                c = 1.0 + (aa/c);
                 if (Math.Abs(c) < fpmin)
                 {
                     c = fpmin;
                 }
 
-                d = 1.0 / d;
-                h *= d * c;
-                aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
-                d = 1.0 + (aa * d);
+                d = 1.0/d;
+                h *= d*c;
+                aa = -(a + m)*(qab + m)*x/((a + m2)*(qap + m2));
+                d = 1.0 + (aa*d);
 
                 if (Math.Abs(d) < fpmin)
                 {
                     d = fpmin;
                 }
 
-                c = 1.0 + (aa / c);
+                c = 1.0 + (aa/c);
 
                 if (Math.Abs(c) < fpmin)
                 {
                     c = fpmin;
                 }
 
-                d = 1.0 / d;
-                var del = d * c;
+                d = 1.0/d;
+                var del = d*c;
                 h *= del;
 
                 if (Math.Abs(del - 1.0) <= eps)
                 {
-                    if (symmetryTransformation)
-                    {
-                        return 1.0 - (bt * h / a);
-                    }
-
-                    return bt * h / a;
+                    return symmetryTransformation ? 1.0 - (bt*h/a) : bt*h/a;
                 }
             }
 
-            throw new ArgumentException(Resources.ArgumentTooLargeForIterationLimit);
+            return symmetryTransformation ? 1.0 - (bt*h/a) : bt*h/a;
         }
     }
 }

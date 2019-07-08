@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -28,13 +27,14 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-using MathNet.Numerics.LinearAlgebra.Storage;
-using MathNet.Numerics.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using MathNet.Numerics.LinearAlgebra.Storage;
+using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.LinearAlgebra.Double
 {
@@ -116,8 +116,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// </summary>
         public static SparseVector Create(int length, double value)
         {
-            if (value == 0d) return new SparseVector(length);
-            return new SparseVector(SparseVectorStorage<double>.OfInit(length, i => value));
+            return new SparseVector(SparseVectorStorage<double>.OfValue(length, value));
         }
 
         /// <summary>
@@ -145,7 +144,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             {
                 if (!ReferenceEquals(this, result))
                 {
-                    CopyTo(result); 
+                    CopyTo(result);
                 }
 
                 return;
@@ -153,7 +152,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
 
             if (ReferenceEquals(this, result))
             {
-                //populate a new vector with the scalar   
+                // populate a new vector with the scalar
                 var vnonZeroValues = new double[Count];
                 var vnonZeroIndices = new int[Count];
                 for (int index = 0; index < Count; index++)
@@ -162,7 +161,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
                     vnonZeroValues[index] = scalar;
                 }
 
-                //populate the non zero values from this
+                // populate the non zero values from this
                 var indices = _storage.Indices;
                 var values = _storage.Values;
                 for (int j = 0; j < _storage.ValueCount; j++)
@@ -170,7 +169,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
                     vnonZeroValues[indices[j]] = values[j] + scalar;
                 }
 
-                //assign this vectors arrary to the new arrays.
+                // assign this vectors array to the new arrays.
                 _storage.Values = vnonZeroValues;
                 _storage.Indices = vnonZeroIndices;
                 _storage.ValueCount = Count;
@@ -384,20 +383,19 @@ namespace MathNet.Numerics.LinearAlgebra.Double
                 {
                     result.At(_storage.Indices[index], -_storage.Values[index]);
                 }
+                return;
             }
-            else
-            {
-                if (!ReferenceEquals(this, result))
-                {
-                    sparseResult._storage.ValueCount = _storage.ValueCount;
-                    sparseResult._storage.Indices = new int[_storage.ValueCount];
-                    Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount * Constants.SizeOfInt);
-                    sparseResult._storage.Values = new double[_storage.ValueCount];
-                    Array.Copy(_storage.Values, sparseResult._storage.Values, _storage.ValueCount);
-                }
 
-                Control.LinearAlgebraProvider.ScaleArray(-1.0d, sparseResult._storage.Values, sparseResult._storage.Values);
+            if (!ReferenceEquals(this, result))
+            {
+                sparseResult._storage.ValueCount = _storage.ValueCount;
+                sparseResult._storage.Indices = new int[_storage.ValueCount];
+                Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount * Constants.SizeOfInt);
+                sparseResult._storage.Values = new double[_storage.ValueCount];
+                Array.Copy(_storage.Values, 0, sparseResult._storage.Values, 0, _storage.ValueCount);
             }
+
+            LinearAlgebraControl.Provider.ScaleArray(-1.0d, sparseResult._storage.Values, sparseResult._storage.Values);
         }
 
         /// <summary>
@@ -428,10 +426,10 @@ namespace MathNet.Numerics.LinearAlgebra.Double
                     sparseResult._storage.Indices = new int[_storage.ValueCount];
                     Buffer.BlockCopy(_storage.Indices, 0, sparseResult._storage.Indices, 0, _storage.ValueCount * Constants.SizeOfInt);
                     sparseResult._storage.Values = new double[_storage.ValueCount];
-                    Array.Copy(_storage.Values, sparseResult._storage.Values, _storage.ValueCount);
+                    Array.Copy(_storage.Values, 0, sparseResult._storage.Values, 0, _storage.ValueCount);
                 }
 
-                Control.LinearAlgebraProvider.ScaleArray(scalar, sparseResult._storage.Values, sparseResult._storage.Values);
+                LinearAlgebraControl.Provider.ScaleArray(scalar, sparseResult._storage.Values, sparseResult._storage.Values);
             }
         }
 
@@ -461,11 +459,37 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         }
 
         /// <summary>
-        /// Computes the modulus for each element of the vector for the given divisor.
+        /// Computes the canonical modulus, where the result has the sign of the divisor,
+        /// for each element of the vector for the given divisor.
         /// </summary>
-        /// <param name="divisor">The divisor to use.</param>
+        /// <param name="divisor">The scalar denominator to use.</param>
         /// <param name="result">A vector to store the results in.</param>
         protected override void DoModulus(double divisor, Vector<double> result)
+        {
+            if (ReferenceEquals(this, result))
+            {
+                for (var index = 0; index < _storage.ValueCount; index++)
+                {
+                    _storage.Values[index] = Euclid.Modulus(_storage.Values[index], divisor);
+                }
+            }
+            else
+            {
+                result.Clear();
+                for (var index = 0; index < _storage.ValueCount; index++)
+                {
+                    result.At(_storage.Indices[index], Euclid.Modulus(_storage.Values[index], divisor));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// for each element of the vector for the given divisor.
+        /// </summary>
+        /// <param name="divisor">The scalar denominator to use.</param>
+        /// <param name="result">A vector to store the results in.</param>
+        protected override void DoRemainder(double divisor, Vector<double> result)
         {
             if (ReferenceEquals(this, result))
             {
@@ -479,7 +503,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
                 result.Clear();
                 for (var index = 0; index < _storage.ValueCount; index++)
                 {
-                    result.At(_storage.Indices[index], _storage.Values[index] % divisor);
+                    result.At(_storage.Indices[index], _storage.Values[index]%divisor);
                 }
             }
         }
@@ -496,14 +520,14 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Add(rightSide);
         }
 
         /// <summary>
-        /// Returns a <strong>Vector</strong> containing the negated values of <paramref name="rightSide"/>. 
+        /// Returns a <strong>Vector</strong> containing the negated values of <paramref name="rightSide"/>.
         /// </summary>
         /// <param name="rightSide">The vector to get the values from.</param>
         /// <returns>A vector containing the negated values as <paramref name="rightSide"/>.</returns>
@@ -512,7 +536,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (SparseVector)rightSide.Negate();
@@ -530,7 +554,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Subtract(rightSide);
@@ -547,7 +571,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Multiply(rightSide);
@@ -564,7 +588,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (rightSide == null)
             {
-                throw new ArgumentNullException("rightSide");
+                throw new ArgumentNullException(nameof(rightSide));
             }
 
             return (SparseVector)rightSide.Multiply(leftSide);
@@ -582,7 +606,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return leftSide.DotProduct(rightSide);
@@ -599,14 +623,15 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
             return (SparseVector)leftSide.Divide(rightSide);
         }
 
         /// <summary>
-        /// Computes the modulus of each element of the vector of the given divisor.
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// of each element of the vector of the given divisor.
         /// </summary>
         /// <param name="leftSide">The vector whose elements we want to compute the modulus of.</param>
         /// <param name="rightSide">The divisor to use,</param>
@@ -616,16 +641,16 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (leftSide == null)
             {
-                throw new ArgumentNullException("leftSide");
+                throw new ArgumentNullException(nameof(leftSide));
             }
 
-            return (SparseVector)leftSide.Modulus(rightSide);
+            return (SparseVector)leftSide.Remainder(rightSide);
         }
 
         /// <summary>
         /// Returns the index of the absolute minimum element.
         /// </summary>
-        /// <returns>The index of absolute minimum element.</returns>   
+        /// <returns>The index of absolute minimum element.</returns>
         public override int AbsoluteMinimumIndex()
         {
             if (_storage.ValueCount == 0)
@@ -652,7 +677,34 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// <summary>
         /// Returns the index of the absolute maximum element.
         /// </summary>
-        /// <returns>The index of absolute maximum element.</returns>          
+        /// <returns>The index of absolute maximum element.</returns>
+        public override int AbsoluteMaximumIndex()
+        {
+            if (_storage.ValueCount == 0)
+            {
+                // No non-zero elements. Return 0
+                return 0;
+            }
+
+            var index = 0;
+            var max = Math.Abs(_storage.Values[index]);
+            for (var i = 1; i < _storage.ValueCount; i++)
+            {
+                var test = Math.Abs(_storage.Values[i]);
+                if (test > max)
+                {
+                    index = i;
+                    max = test;
+                }
+            }
+
+            return _storage.Indices[index];
+        }
+
+        /// <summary>
+        /// Returns the index of the maximum element.
+        /// </summary>
+        /// <returns>The index of maximum element.</returns>
         public override int MaximumIndex()
         {
             if (_storage.ValueCount == 0)
@@ -677,7 +729,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// <summary>
         /// Returns the index of the minimum element.
         /// </summary>
-        /// <returns>The index of minimum element.</returns>  
+        /// <returns>The index of minimum element.</returns>
         public override int MinimumIndex()
         {
             if (_storage.ValueCount == 0)
@@ -730,7 +782,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public override double InfinityNorm()
         {
             return CommonParallel.Aggregate(0, _storage.ValueCount, i => Math.Abs(_storage.Values[i]), Math.Max, 0d);
@@ -743,7 +795,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// <returns>Scalar <c>ret = ( ∑|this[i]|^p )^(1/p)</c></returns>
         public override double Norm(double p)
         {
-            if (p < 0d) throw new ArgumentOutOfRangeException("p");
+            if (p < 0d) throw new ArgumentOutOfRangeException(nameof(p));
 
             if (_storage.ValueCount == 0)
             {
@@ -769,89 +821,17 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// <param name="result">The vector to store the result of the pointwise multiplication.</param>
         protected override void DoPointwiseMultiply(Vector<double> other, Vector<double> result)
         {
-            if (ReferenceEquals(this, other))
+            if (ReferenceEquals(this, other) && ReferenceEquals(this, result))
             {
                 for (var i = 0; i < _storage.ValueCount; i++)
                 {
-                    _storage.Values[i] *= _storage.Values[i]; 
+                    _storage.Values[i] *= _storage.Values[i];
                 }
             }
             else
             {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    var index = _storage.Indices[i];
-                    result.At(index, other.At(index) * _storage.Values[i]);
-                }
+                base.DoPointwiseMultiply(other, result);
             }
-        }
-
-        /// <summary>
-        /// Pointwise multiplies this vector with another vector and stores the result into the result vector.
-        /// </summary>
-        /// <param name="divisor">The vector to pointwise multiply with this one.</param>
-        /// <param name="result">The vector to store the result of the pointwise multiplication.</param>
-        protected override void DoPointwiseDivide(Vector<double> divisor, Vector<double> result)
-        {
-            if (ReferenceEquals(this, divisor))
-            {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    _storage.Values[i] /= _storage.Values[i];
-                }
-            }
-            else
-            {
-                for (var i = 0; i < _storage.ValueCount; i++)
-                {
-                    var index = _storage.Indices[i];
-                    result.At(index, _storage.Values[i] / divisor.At(index));
-                }
-            }
-        }
-
-        /// <summary>
-        /// Outer product of two vectors
-        /// </summary>
-        /// <param name="u">First vector</param>
-        /// <param name="v">Second vector</param>
-        /// <returns>Matrix M[i,j] = u[i]*v[j] </returns>
-        /// <exception cref="ArgumentNullException">If the u vector is <see langword="null" />.</exception> 
-        /// <exception cref="ArgumentNullException">If the v vector is <see langword="null" />.</exception> 
-        public static Matrix<double> OuterProduct(SparseVector u, SparseVector v)
-        {
-            if (u == null)
-            {
-                throw new ArgumentNullException("u");
-            }
-
-            if (v == null)
-            {
-                throw new ArgumentNullException("v");
-            }
-
-            var matrix = new SparseMatrix(u.Count, v.Count);
-            for (var i = 0; i < u._storage.ValueCount; i++)
-            {
-                for (var j = 0; j < v._storage.ValueCount; j++)
-                {
-                    matrix.At(i, j, u._storage.Values[i] * v._storage.Values[j]);
-                }
-            }
-
-            return matrix;
-        }
-
-        /// <summary>
-        /// Outer product of this and another vector.
-        /// </summary>
-        /// <param name="v">The vector to operate on.</param>
-        /// <returns>
-        /// Matrix M[i,j] = this[i] * v[j].
-        /// </returns>
-        public Matrix<double> OuterProduct(SparseVector v)
-        {
-            return OuterProduct(this, v);
         }
 
         #region Parse Functions
@@ -873,7 +853,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         {
             if (value == null)
             {
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
             }
 
             value = value.Trim();
@@ -907,7 +887,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             var tokens = value.Split(new[] { formatProvider.GetTextInfo().ListSeparator, " ", "\t" }, StringSplitOptions.RemoveEmptyEntries);
             var data = tokens.Select(t => double.Parse(t, NumberStyles.Any, formatProvider)).ToList();
             if (data.Count == 0) throw new FormatException();
-            return OfEnumerable(data);
+            return new SparseVector(SparseVectorStorage<double>.OfEnumerable(data));
         }
 
         /// <summary>

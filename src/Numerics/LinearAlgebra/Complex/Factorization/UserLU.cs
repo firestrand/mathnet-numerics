@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -33,12 +32,7 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// <para>A class which encapsulates the functionality of an LU factorization.</para>
@@ -61,7 +55,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         {
             if (matrix == null)
             {
-                throw new ArgumentNullException("matrix");
+                throw new ArgumentNullException(nameof(matrix));
             }
 
             if (matrix.RowCount != matrix.ColumnCount)
@@ -153,12 +147,12 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -239,12 +233,12 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
             // Check for proper arguments.
             if (input == null)
             {
-                throw new ArgumentNullException("input");
+                throw new ArgumentNullException(nameof(input));
             }
 
             if (result == null)
             {
-                throw new ArgumentNullException("result");
+                throw new ArgumentNullException(nameof(result));
             }
 
             // Check for proper dimensions.
@@ -302,7 +296,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         public override Matrix<Complex> Inverse()
         {
             var order = Factors.RowCount;
-            var inverse = Factors.CreateMatrix(order, order);
+            var inverse = Matrix<Complex>.Build.SameAs(Factors, order, order);
             for (var i = 0; i < order; i++)
             {
                 inverse.At(i, i, 1.0);

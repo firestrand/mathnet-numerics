@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -121,7 +120,7 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Substracts each element of a vector from a scalar.
+        /// Subtracts each element of a vector from a scalar.
         /// </summary>
         /// <param name="leftSide">The scalar value to subtract from.</param>
         /// <param name="rightSide">The vector to subtract.</param>
@@ -178,7 +177,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentNullException">If <paramref name="divisor"/> is <see langword="null" />.</exception>
         public static Vector<T> operator /(T dividend, Vector<T> divisor)
         {
-            return divisor.DevideByThis(dividend);
+            return divisor.DivideByThis(dividend);
         }
 
         /// <summary>
@@ -207,40 +206,40 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Computes the modulus of each element of the vector of the given divisor.
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// of each element of the vector of the given divisor.
         /// </summary>
-        /// <param name="dividend">The vector whose elements we want to compute the modulus of.</param>
+        /// <param name="dividend">The vector whose elements we want to compute the remainder of.</param>
         /// <param name="divisor">The divisor to use.</param>
-        /// <returns>The result of the calculation</returns>
         /// <exception cref="ArgumentNullException">If <paramref name="dividend"/> is <see langword="null" />.</exception>
         public static Vector<T> operator %(Vector<T> dividend, T divisor)
         {
-            return dividend.Modulus(divisor);
+            return dividend.Remainder(divisor);
         }
 
         /// <summary>
-        /// Computes the modulus of the given dividend of each element of the vector.
+        /// Computes the remainder (% operator), where the result has the sign of the dividend,
+        /// of the given dividend of each element of the vector.
         /// </summary>
-        /// <param name="dividend">The dividend we want to compute the modulus of.</param>
+        /// <param name="dividend">The dividend we want to compute the remainder of.</param>
         /// <param name="divisor">The vector whose elements we want to use as divisor.</param>
-        /// <returns>The result of the calculation</returns>
         /// <exception cref="ArgumentNullException">If <paramref name="dividend"/> is <see langword="null" />.</exception>
         public static Vector<T> operator %(T dividend, Vector<T> divisor)
         {
-            return divisor.ModulusByThis(dividend);
+            return divisor.RemainderByThis(dividend);
         }
 
         /// <summary>
-        /// Computes the pointwise modulus of each element of two vectors.
+        /// Computes the pointwise remainder (% operator), where the result has the sign of the dividend,
+        /// of each element of two vectors.
         /// </summary>
-        /// <param name="dividend">The vector whose elements we want to compute the modulus of.</param>
+        /// <param name="dividend">The vector whose elements we want to compute the remainder of.</param>
         /// <param name="divisor">The divisor to use.</param>
-        /// <returns>The result of the calculation</returns>
         /// <exception cref="ArgumentException">If <paramref name="dividend"/> and <paramref name="divisor"/> are not the same size.</exception>
         /// <exception cref="ArgumentNullException">If <paramref name="dividend"/> is <see langword="null" />.</exception>
         public static Vector<T> operator %(Vector<T> dividend, Vector<T> divisor)
         {
-            return dividend.PointwiseModulus(divisor);
+            return dividend.PointwiseRemainder(divisor);
         }
 
         [SpecialName]
@@ -258,7 +257,188 @@ namespace MathNet.Numerics.LinearAlgebra
         [SpecialName]
         public static Vector<T> op_DotPercent(Vector<T> dividend, Vector<T> divisor)
         {
-            return dividend.PointwiseModulus(divisor);
+            return dividend.PointwiseRemainder(divisor);
+        }
+
+        [SpecialName]
+        public static Vector<T> op_DotHat(Vector<T> vector, Vector<T> exponent)
+        {
+            return vector.PointwisePower(exponent);
+        }
+
+        [SpecialName]
+        public static Vector<T> op_DotHat(Vector<T> vector, T exponent)
+        {
+            return vector.PointwisePower(exponent);
+        }
+
+        /// <summary>
+        /// Computes the sqrt of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Sqrt(Vector<T> x)
+        {
+            return x.PointwiseSqrt();
+        }
+
+        /// <summary>
+        /// Computes the exponential of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Exp(Vector<T> x)
+        {
+            return x.PointwiseUnary(x.DoPointwiseExp);
+        }
+
+        /// <summary>
+        /// Computes the log of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Log(Vector<T> x)
+        {
+            return x.PointwiseUnary(x.PointwiseLog);
+        }
+        /// <summary>
+        /// Computes the log10 of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Log10(Vector<T> x)
+        {
+            return x.PointwiseLog10();
+        }
+
+        /// <summary>
+        /// Computes the sin of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Sin(Vector<T> x)
+        {
+            return x.PointwiseSin();
+        }
+
+        /// <summary>
+        /// Computes the cos of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Cos(Vector<T> x)
+        {
+            return x.PointwiseCos();
+        }
+
+        /// <summary>
+        /// Computes the tan of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Tan(Vector<T> x)
+        {
+            return x.PointwiseTan();
+        }
+
+        /// <summary>
+        /// Computes the asin of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Asin(Vector<T> x)
+        {
+            return x.PointwiseAsin();
+        }
+
+        /// <summary>
+        /// Computes the acos of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Acos(Vector<T> x)
+        {
+            return x.PointwiseAcos();
+        }
+
+        /// <summary>
+        /// Computes the atan of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Atan(Vector<T> x)
+        {
+            return x.PointwiseAtan();
+        }
+
+        /// <summary>
+        /// Computes the sinh of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Sinh(Vector<T> x)
+        {
+            return x.PointwiseSinh();
+        }
+
+        /// <summary>
+        /// Computes the cosh of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Cosh(Vector<T> x)
+        {
+            return x.PointwiseCosh();
+        }
+
+        /// <summary>
+        /// Computes the tanh of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Tanh(Vector<T> x)
+        {
+            return x.PointwiseTanh();
+        }
+
+        /// <summary>
+        /// Computes the absolute value of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Abs(Vector<T> x)
+        {
+            return x.PointwiseAbs();
+        }
+
+        /// <summary>
+        /// Computes the floor of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Floor(Vector<T> x)
+        {
+            return x.PointwiseFloor();
+        }
+
+        /// <summary>
+        /// Computes the ceiling of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Ceiling(Vector<T> x)
+        {
+            return x.PointwiseCeiling();
+        }
+
+        /// <summary>
+        /// Computes the rounded value of a vector pointwise
+        /// </summary>
+        /// <param name="x">The input vector</param>
+        /// <returns></returns>
+        public static Vector<T> Round(Vector<T> x)
+        {
+            return x.PointwiseRound();
         }
     }
 }

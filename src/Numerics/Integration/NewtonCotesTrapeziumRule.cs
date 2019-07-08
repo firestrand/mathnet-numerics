@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -53,7 +52,7 @@ namespace MathNet.Numerics.Integration
         {
             if (f == null)
             {
-                throw new ArgumentNullException("f");
+                throw new ArgumentNullException(nameof(f));
             }
 
             return (intervalEnd - intervalBegin)/2*(f(intervalBegin) + f(intervalEnd));
@@ -71,12 +70,12 @@ namespace MathNet.Numerics.Integration
         {
             if (f == null)
             {
-                throw new ArgumentNullException("f");
+                throw new ArgumentNullException(nameof(f));
             }
 
             if (numberOfPartitions <= 0)
             {
-                throw new ArgumentOutOfRangeException("numberOfPartitions", Resources.ArgumentPositive);
+                throw new ArgumentOutOfRangeException(nameof(numberOfPartitions), Resources.ArgumentPositive);
             }
 
             double step = (intervalEnd - intervalBegin)/numberOfPartitions;
@@ -105,7 +104,7 @@ namespace MathNet.Numerics.Integration
         {
             if (f == null)
             {
-                throw new ArgumentNullException("f");
+                throw new ArgumentNullException(nameof(f));
             }
 
             int numberOfPartitions = 1;
@@ -124,7 +123,7 @@ namespace MathNet.Numerics.Integration
                 step *= 0.5;
                 numberOfPartitions *= 2;
 
-                if (sum.AlmostEqualWithError(midpointsum, targetError))
+                if (sum.AlmostEqualRelative(midpointsum, targetError))
                 {
                     break;
                 }
@@ -152,17 +151,17 @@ namespace MathNet.Numerics.Integration
         {
             if (f == null)
             {
-                throw new ArgumentNullException("f");
+                throw new ArgumentNullException(nameof(f));
             }
 
             if (levelAbscissas == null)
             {
-                throw new ArgumentNullException("levelAbscissas");
+                throw new ArgumentNullException(nameof(levelAbscissas));
             }
 
             if (levelWeights == null)
             {
-                throw new ArgumentNullException("levelWeights");
+                throw new ArgumentNullException(nameof(levelWeights));
             }
 
             double linearSlope = 0.5*(intervalEnd - intervalBegin);
@@ -222,7 +221,7 @@ namespace MathNet.Numerics.Integration
                         delta = Math.Sqrt(delta);
                     }
 
-                    if (sum.AlmostEqualWithRelativeError(midpointsum, delta, targetRelativeError))
+                    if (sum.AlmostEqualNormRelative(midpointsum, delta, targetRelativeError))
                     {
                         break;
                     }

@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -93,7 +92,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (result.Count != input.Count)
@@ -164,7 +163,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                 {
                     // sigma = (v, r)
                     var sigma = v.DotProduct(r);
-                    if (sigma.AlmostEqual(0, 1))
+                    if (sigma.AlmostEqualNumbersBetween(0, 1))
                     {
                         // FAIL HERE
                         iterator.Cancel();
@@ -237,7 +236,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                 // The odd step
                 if (!IsEven(iterationNumber))
                 {
-                    if (rho.AlmostEqual(0, 1))
+                    if (rho.AlmostEqualNumbersBetween(0, 1))
                     {
                         // FAIL HERE
                         iterator.Cancel();

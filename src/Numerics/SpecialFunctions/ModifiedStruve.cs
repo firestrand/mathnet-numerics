@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2012 Math.NET
 //
@@ -32,10 +31,10 @@
 //    CERN - European Laboratory for Particle Physics
 //        http://www.docjar.com/html/api/cern/jet/math/Bessel.java.html
 //        Copyright 1999 CERN - European Laboratory for Particle Physics.
-//        Permission to use, copy, modify, distribute and sell this software and its documentation for any purpose 
-//        is hereby granted without fee, provided that the above copyright notice appear in all copies and 
-//        that both that copyright notice and this permission notice appear in supporting documentation. 
-//        CERN makes no representations about the suitability of this software for any purpose. 
+//        Permission to use, copy, modify, distribute and sell this software and its documentation for any purpose
+//        is hereby granted without fee, provided that the above copyright notice appear in all copies and
+//        that both that copyright notice and this permission notice appear in supporting documentation.
+//        CERN makes no representations about the suitability of this software for any purpose.
 //        It is provided "as is" without expressed or implied warranty.
 //    TOMS757 - Uncommon Special Functions (Fortran77) by Allan McLeod
 //        http://people.sc.fsu.edu/~jburkardt/f77_src/toms757/toms757.html
@@ -44,14 +43,14 @@
 //    ALGLIB 2.0.1, Sergey Bochkanov
 // </contribution>
 
+using System;
+
 // ReSharper disable CheckNamespace
 namespace MathNet.Numerics
 // ReSharper restore CheckNamespace
 {
-    using System;
-
     /// <summary>
-    /// This partial implementation of the SpecialFunctions class contains all methods related to the modified bessel function.
+    /// This partial implementation of the SpecialFunctions class contains all methods related to the modified Bessel function.
     /// </summary>
     public static partial class SpecialFunctions
     {
@@ -95,7 +94,7 @@ namespace MathNet.Numerics
             //
             //      NTERM2 - INTEGER - The no. of terms for the array ARL0AS.
             //                         The recommended value is such that
-            //                             ABS(ARL0AS(NTERM2)) < EPS/100 
+            //                             ABS(ARL0AS(NTERM2)) < EPS/100
             //
             //      NTERM3 - INTEGER - The no. of terms for the array AI0ML0.
             //                         The recommended value is such that
@@ -233,20 +232,24 @@ namespace MathNet.Numerics
             AI0ML0[23] = 0.16e-18;
 
             // MACHINE-DEPENDENT VALUES (Suitable for IEEE-arithmetic machines)
-            const int nterm1 = 25; const int nterm2 = 14; const int nterm3 = 21;
-            const double xlow = 4.4703484e-8; const double xmax = 1.797693e308;
-            const double xhigh1 = 5.1982303e8; const double xhigh2 = 2.5220158e17;
+            const int nterm1 = 25;
+            const int nterm2 = 14;
+            const int nterm3 = 21;
+            const double xlow = 4.4703484e-8;
+            const double xmax = 1.797693e308;
+            const double xhigh1 = 5.1982303e8;
+            const double xhigh2 = 2.5220158e17;
 
             // Code for |xvalue| <= 16
             if (x <= 16.0)
             {
                 if (x < xlow)
                 {
-                    return Constants.TwoInvPi * x;
+                    return Constants.TwoInvPi*x;
                 }
 
-                double T = (4.0 * x - 24.0) / (x + 24.0);
-                return Constants.TwoInvPi * x * Evaluate.ChebyshevSum(nterm1, ARL0, T) * Math.Exp(x);
+                double T = (4.0*x - 24.0)/(x + 24.0);
+                return Constants.TwoInvPi*x*Evaluate.ChebyshevSum(nterm1, ARL0, T)*Math.Exp(x);
             }
 
             // Code for |xvalue| > 16
@@ -257,7 +260,7 @@ namespace MathNet.Numerics
             }
             else
             {
-                double T = (x - 28.0) / (4.0 - x);
+                double T = (x - 28.0)/(4.0 - x);
                 ch1 = Evaluate.ChebyshevSum(nterm2, ARL0AS, T);
             }
 
@@ -268,18 +271,18 @@ namespace MathNet.Numerics
             }
             else
             {
-                double xsq = x * x;
-                double T = (800.0 - xsq) / (288.0 + xsq);
+                double xsq = x*x;
+                double T = (800.0 - xsq)/(288.0 + xsq);
                 ch2 = Evaluate.ChebyshevSum(nterm3, AI0ML0, T);
             }
 
-            double test = Math.Log(ch1) - Constants.LogSqrt2Pi - Math.Log(x) / 2.0 + x;
+            double test = Math.Log(ch1) - Constants.LogSqrt2Pi - Math.Log(x)/2.0 + x;
             if (test > Math.Log(xmax))
             {
                 throw new ArithmeticException("ERROR IN MISCFUN FUNCTION STRVL0: ARGUMENT CAUSES OVERFLOW");
             }
 
-            return Math.Exp(test) - Constants.TwoInvPi * ch2 / x;
+            return Math.Exp(test) - Constants.TwoInvPi*ch2/x;
         }
 
         /// <summary>
@@ -321,15 +324,15 @@ namespace MathNet.Numerics
             //
             //      NTERM2 - INTEGER - The no. of terms for the array ARL1AS.
             //                         The recommended value is such that
-            //                             ABS(ARL1AS(NTERM2)) < EPS/100 
+            //                             ABS(ARL1AS(NTERM2)) < EPS/100
             //
             //      NTERM3 - INTEGER - The no. of terms for the array AI1ML1.
             //                         The recommended value is such that
             //                             ABS(AI1ML1(NTERM3)) < EPS/100
             //
-            //      XLOW1 - DOUBLE PRECISION - The value of x below which 
+            //      XLOW1 - DOUBLE PRECISION - The value of x below which
             //                                     L1(x) = 2*x*x/(3*pi)
-            //                                 to machine precision. The recommended 
+            //                                 to machine precision. The recommended
             //                                 value is     SQRT(15*EPS)
             //
             //      XLOW2 - DOUBLE PRECISION - The value of x below which L1(x) set to 0.0.
@@ -346,12 +349,12 @@ namespace MathNet.Numerics
             //                      series in the asymptotic expansion of I1 - L1
             //                      equals 1.0 to machine precision. The recommended
             //                      value is   30 / EPSNEG.
-            // 
+            //
             //      XMAX - DOUBLE PRECISION - The value of XMAX, where XMAX is the
             //                    largest possible floating-pt argument.
             //                    This is used to prevent overflow.
             //
-            //      For values of EPS, EPSNEG, XMIN, and XMAX the user should refer 
+            //      For values of EPS, EPSNEG, XMIN, and XMAX the user should refer
             //      to the file MACHCON.TXT
             //
             //      The machine-arithmetic constants are given in DATA
@@ -467,9 +470,14 @@ namespace MathNet.Numerics
             AI1ML1[25] = -0.1e-19;
 
             // MACHINE-DEPENDENT VALUES (Suitable for IEEE-arithmetic machines)
-            const int nterm1 = 24; const int nterm2 = 13; const int nterm3 = 22;
-            const double xlow1 = 5.7711949e-8; const double xlow2 = 3.3354714e-154; const double xmax = 1.797693e308;
-            const double xhigh1 = 5.19823025e8; const double xhigh2 = 2.7021597e17;
+            const int nterm1 = 24;
+            const int nterm2 = 13;
+            const int nterm3 = 22;
+            const double xlow1 = 5.7711949e-8;
+            const double xlow2 = 3.3354714e-154;
+            const double xmax = 1.797693e308;
+            const double xhigh1 = 5.19823025e8;
+            const double xhigh2 = 2.7021597e17;
 
             // CODE FOR |x| <= 16
             if (x <= 16.0)
@@ -479,14 +487,14 @@ namespace MathNet.Numerics
                     return 0.0;
                 }
 
-                double xsq = x * x;
+                double xsq = x*x;
                 if (x < xlow1)
                 {
-                    return xsq / Constants.Pi3Over2;
+                    return xsq/Constants.Pi3Over2;
                 }
 
-                double t = (4.0 * x - 24.0) / (x + 24.0);
-                return xsq * Evaluate.ChebyshevSum(nterm1, ARL1, t) * Math.Exp(x) / Constants.Pi3Over2;
+                double t = (4.0*x - 24.0)/(x + 24.0);
+                return xsq*Evaluate.ChebyshevSum(nterm1, ARL1, t)*Math.Exp(x)/Constants.Pi3Over2;
             }
 
             // CODE FOR |x| > 16
@@ -497,7 +505,7 @@ namespace MathNet.Numerics
             }
             else
             {
-                double t = (x - 30.0) / (2.0 - x);
+                double t = (x - 30.0)/(2.0 - x);
                 ch1 = Evaluate.ChebyshevSum(nterm2, ARL1AS, t);
             }
 
@@ -508,18 +516,18 @@ namespace MathNet.Numerics
             }
             else
             {
-                double xsq = x * x;
-                double t = (800.0 - xsq) / (288.0 + xsq);
+                double xsq = x*x;
+                double t = (800.0 - xsq)/(288.0 + xsq);
                 ch2 = Evaluate.ChebyshevSum(nterm3, AI1ML1, t);
             }
 
-            double test = Math.Log(ch1) - Constants.LogSqrt2Pi - Math.Log(x) / 2.0 + x;
+            double test = Math.Log(ch1) - Constants.LogSqrt2Pi - Math.Log(x)/2.0 + x;
             if (test > Math.Log(xmax))
             {
                 throw new ArithmeticException("ERROR IN MISCFUN FUNCTION STRVL1: ARGUMENT CAUSES OVERFLOW");
             }
 
-            return Math.Exp(test) - Constants.TwoInvPi * ch2;
+            return Math.Exp(test) - Constants.TwoInvPi*ch2;
         }
 
         /// <summary>

@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2011 Math.NET
 //
@@ -33,13 +32,13 @@
 //    ALGLIB 2.0.1, Sergey Bochkanov
 // </contribution>
 
+using System;
+using MathNet.Numerics.Properties;
+
 // ReSharper disable CheckNamespace
 namespace MathNet.Numerics
 // ReSharper restore CheckNamespace
 {
-    using System;
-    using Properties;
-
     /// <summary>
     /// This partial implementation of the SpecialFunctions class contains all methods related to the logistic function.
     /// </summary>
@@ -52,7 +51,7 @@ namespace MathNet.Numerics
         /// <returns>The logistic function of <paramref name="p"/>.</returns>
         public static double Logistic(double p)
         {
-            return 1.0 / (Math.Exp(-p) + 1.0);
+            return 1.0/(Math.Exp(-p) + 1.0);
         }
 
         /// <summary>
@@ -65,10 +64,10 @@ namespace MathNet.Numerics
         {
             if (p < 0.0 || p > 1.0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentBetween0And1);
+                throw new ArgumentOutOfRangeException(nameof(p), Resources.ArgumentBetween0And1);
             }
 
-            return Math.Log(p / (1.0 - p));
+            return Math.Log(p/(1.0 - p));
         }
     }
 }

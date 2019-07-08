@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -61,6 +60,11 @@ namespace MathNet.Numerics.Distributions
         /// Gets the skewness of the distribution.
         /// </summary>
         double Skewness { get; }
+
+        /// <summary>
+        /// Gets the median of the distribution.
+        /// </summary>
+        double Median { get; }
 
         /// <summary>
         /// Computes the cumulative distribution (CDF) of the distribution at x, i.e. P(X ≤ x).

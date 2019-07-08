@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -44,13 +43,13 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
     /// <remarks>
     /// <para>
     /// The Multiple-Lanczos Bi-Conjugate Gradient stabilized (ML(k)-BiCGStab) solver is an 'improvement'
-    /// of the standard BiCgStab solver. 
+    /// of the standard BiCgStab solver.
     /// </para>
     /// <para>
     /// The algorithm was taken from: <br/>
     /// ML(k)BiCGSTAB: A BiCGSTAB variant based on multiple Lanczos starting vectors
     /// <br/>
-    /// Man-chung Yeung and Tony F. Chan
+    /// Man-Chung Yeung and Tony F. Chan
     /// <br/>
     /// SIAM Journal of Scientific Computing
     /// <br/>
@@ -82,7 +81,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         /// Gets or sets the number of starting vectors.
         /// </summary>
         /// <remarks>
-        /// Must be larger than 1 and smaller than the number of variables in the matrix that 
+        /// Must be larger than 1 and smaller than the number of variables in the matrix that
         /// for which this solver will be used.
         /// </remarks>
         public int NumberOfStartingVectors
@@ -98,7 +97,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
             {
                 if (value <= 1)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _numberOfStartingVectors = value;
@@ -114,7 +113,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         }
 
         /// <summary>
-        /// Gets or sets a series of orthonormal vectors which will be used as basis for the 
+        /// Gets or sets a series of orthonormal vectors which will be used as basis for the
         /// Krylov sub-space.
         /// </summary>
         public IList<Vector<double>> StartingVectors
@@ -159,7 +158,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         /// <returns>
         ///  An array with starting vectors. The array will never be larger than the
         ///  <paramref name="maximumNumberOfStartingVectors"/> but it may be smaller if
-        ///  the <paramref name="numberOfVariables"/> is smaller than 
+        ///  the <paramref name="numberOfVariables"/> is smaller than
         ///  the <paramref name="maximumNumberOfStartingVectors"/>.
         /// </returns>
         static IList<Vector<double>> CreateStartingVectors(int maximumNumberOfStartingVectors, int numberOfVariables)
@@ -187,7 +186,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
             var orthogonalMatrix = gs.Q;
 
             // Now transfer this to vectors
-            var result = new List<Vector<double>>();
+            var result = new List<Vector<double>>(orthogonalMatrix.ColumnCount);
             for (var i = 0; i < orthogonalMatrix.ColumnCount; i++)
             {
                 result.Add(orthogonalMatrix.Column(i));
@@ -200,7 +199,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         }
 
         /// <summary>
-        /// Create random vecrors array
+        /// Create random vectors array
         /// </summary>
         /// <param name="arraySize">Number of vectors</param>
         /// <param name="vectorSize">Size of each vector</param>
@@ -246,7 +245,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (result.Count != input.Count)
@@ -286,7 +285,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                 // We don't accept collections with zero starting vectors so ...
                 if (_startingVectors.Count <= NumberOfStartingVectorsToCreate(_numberOfStartingVectors, input.Count))
                 {
-                    // Only check the first vector for sizing. If that matches we assume the 
+                    // Only check the first vector for sizing. If that matches we assume the
                     // other vectors match too. If they don't the process will crash
                     if (_startingVectors[0].Count == input.Count)
                     {
@@ -341,9 +340,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
 
                 // c_((j-1)k+k) = q^T_1 w_((j-1)k+k)
                 c[k - 1] = _startingVectors[0].DotProduct(w[k - 1]);
-                if (c[k - 1].AlmostEqual(0, 1))
+                if (c[k - 1].AlmostEqualNumbersBetween(0, 1))
                 {
-                    throw new Exception("Iterative solver experience a numerical break down");
+                    throw new NumericalBreakdownException();
                 }
 
                 // alpha_(jk+1) = q^T_1 r_((j-1)k+k) / c_((j-1)k+k)
@@ -364,7 +363,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                 // If rho is zero then temp is a zero vector and we're probably
                 // about to have zero residuals (i.e. an exact solution).
                 // So set rho to 1.0 because in the next step it will turn to zero.
-                if (rho.AlmostEqual(0, 1))
+                if (rho.AlmostEqualNumbersBetween(0, 1))
                 {
                     rho = 1.0;
                 }
@@ -442,9 +441,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                     }
 
                     beta = rho*c[k - 1];
-                    if (beta.AlmostEqual(0, 1))
+                    if (beta.AlmostEqualNumbersBetween(0, 1))
                     {
-                        throw new Exception("Iterative solver experience a numerical break down");
+                        throw new NumericalBreakdownException();
                     }
 
                     // beta^(jk+i)_((j-1)k+k) = -(q^T_1 (r_(jk+1) + rho_(j+1) z_w)) / (rho_(j+1) c_((j-1)k+k))
@@ -494,9 +493,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Solvers
                     {
                         // c_(jk+1) = q^T_i+1 d_(jk+i)
                         c[i] = _startingVectors[i + 1].DotProduct(d[i]);
-                        if (c[i].AlmostEqual(0, 1))
+                        if (c[i].AlmostEqualNumbersBetween(0, 1))
                         {
-                            throw new Exception("Iterative solver experience a numerical break down");
+                            throw new NumericalBreakdownException();
                         }
 
                         // alpha_(jk+i+1) = q^T_(i+1) u_(jk+i) / c_(jk+i)

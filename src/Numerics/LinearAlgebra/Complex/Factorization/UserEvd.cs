@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -33,19 +32,14 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// Eigenvalues and eigenvectors of a complex matrix.
     /// </summary>
     /// <remarks>
-    /// If A is hermitan, then A = V*D*V' where the eigenvalue matrix D is
-    /// diagonal and the eigenvector matrix V is hermitan.
+    /// If A is Hermitian, then A = V*D*V' where the eigenvalue matrix D is
+    /// diagonal and the eigenvector matrix V is Hermitian.
     /// I.e. A = V*D*V' and V*VH=I.
     /// If A is not symmetric, then the eigenvalue matrix D is block diagonal
     /// with the real eigenvalues in 1-by-1 blocks and any complex eigenvalues,
@@ -62,9 +56,10 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         /// the eigenvalue decomposition when the constructor is called and cache it's decomposition.
         /// </summary>
         /// <param name="matrix">The matrix to factor.</param>
+        /// <param name="symmetricity">If it is known whether the matrix is symmetric or not the routine can skip checking it itself.</param>
         /// <exception cref="ArgumentNullException">If <paramref name="matrix"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentException">If EVD algorithm failed to converge with matrix <paramref name="matrix"/>.</exception>
-        public static UserEvd Create(Matrix<Complex> matrix)
+        public static UserEvd Create(Matrix<Complex> matrix, Symmetricity symmetricity)
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
@@ -73,19 +68,23 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 
             var order = matrix.RowCount;
 
-            // Initialize matricies for eigenvalues and eigenvectors
-            var eigenVectors = DenseMatrix.Identity(order);
-            var blockDiagonal = matrix.CreateMatrix(order, order);
+            // Initialize matrices for eigenvalues and eigenvectors
+            var eigenVectors = DenseMatrix.CreateIdentity(order);
+            var blockDiagonal = Matrix<Complex>.Build.SameAs(matrix, order, order);
             var eigenValues = new DenseVector(order);
 
-            var isSymmetric = true;
-
-            for (var i = 0; isSymmetric && i < order; i++)
+            bool isSymmetric;
+            switch (symmetricity)
             {
-                for (var j = 0; isSymmetric && j < order; j++)
-                {
-                    isSymmetric &= matrix.At(i, j) == matrix.At(j, i).Conjugate();
-                }
+                case Symmetricity.Hermitian:
+                    isSymmetric = true;
+                    break;
+                case Symmetricity.Asymmetric:
+                    isSymmetric = false;
+                    break;
+                default:
+                    isSymmetric = matrix.IsHermitian();
+                    break;
             }
 
             if (isSymmetric)
@@ -122,16 +121,16 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         }
 
         /// <summary>
-        /// Reduces a complex hermitian matrix to a real symmetric tridiagonal matrix using unitary similarity transformations.
+        /// Reduces a complex Hermitian matrix to a real symmetric tridiagonal matrix using unitary similarity transformations.
         /// </summary>
         /// <param name="matrixA">Source matrix to reduce</param>
         /// <param name="d">Output: Arrays for internal storage of real parts of eigenvalues</param>
         /// <param name="e">Output: Arrays for internal storage of imaginary parts of eigenvalues</param>
         /// <param name="tau">Output: Arrays that contains further information about the transformations.</param>
         /// <param name="order">Order of initial matrix</param>
-        /// <remarks>This is derived from the Algol procedures HTRIDI by 
-        /// Smith, Boyle, Dongarra, Garbow, Ikebe, Klema, Moler, and Wilkinson, Handbook for 
-        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding 
+        /// <remarks>This is derived from the Algol procedures HTRIDI by
+        /// Smith, Boyle, Dongarra, Garbow, Ikebe, Klema, Moler, and Wilkinson, Handbook for
+        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding
         /// Fortran subroutine in EISPACK.</remarks>
         static void SymmetricTridiagonalize(Complex[,] matrixA, double[] d, double[] e, Complex[] tau, int order)
         {
@@ -269,7 +268,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 
             var f = 0.0;
             var tst1 = 0.0;
-            var eps = Precision.DoubleMachinePrecision;
+            var eps = Precision.DoublePrecision;
             for (var l = 0; l < order; l++)
             {
                 // Find small subdiagonal element
@@ -350,7 +349,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
                         e[l] = s*p;
                         d[l] = c*p;
 
-                        // Check for convergence. If too many iterations have been performed, 
+                        // Check for convergence. If too many iterations have been performed,
                         // throw exception that Convergence Failed
                         if (iter >= maxiter)
                         {
@@ -598,7 +597,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         {
             // Initialize
             var n = order - 1;
-            var eps = Precision.DoubleMachinePrecision;
+            var eps = Precision.DoublePrecision;
 
             double norm;
             Complex x, y, z, exshift = Complex.Zero;
@@ -741,7 +740,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
                 }
             }
 
-            // All roots found.  
+            // All roots found.
             // Backsubstitute to find vectors of upper triangular form
             norm = 0.0;
             for (var i = 0; i < order; i++)

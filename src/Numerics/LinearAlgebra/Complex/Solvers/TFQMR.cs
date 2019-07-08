@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -34,13 +33,7 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
 {
-
-#if NOSYSNUMERICS
-    using Complex = Numerics.Complex;
-#else
     using Complex = System.Numerics.Complex;
-
-#endif
 
     /// <summary>
     /// A Transpose Free Quasi-Minimal Residual (TFQMR) iterative matrix solver.
@@ -101,7 +94,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (input.Count != matrix.RowCount || result.Count != input.Count)
@@ -167,7 +160,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
                 {
                     // sigma = (v, r)
                     var sigma = r.ConjugateDotProduct(v);
-                    if (sigma.Real.AlmostEqual(0, 1) && sigma.Imaginary.AlmostEqual(0, 1))
+                    if (sigma.Real.AlmostEqualNumbersBetween(0, 1) && sigma.Imaginary.AlmostEqualNumbersBetween(0, 1))
                     {
                         // FAIL HERE
                         iterator.Cancel();
@@ -240,7 +233,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
                 // The odd step
                 if (!IsEven(iterationNumber))
                 {
-                    if (rho.Real.AlmostEqual(0, 1) && rho.Imaginary.AlmostEqual(0, 1))
+                    if (rho.Real.AlmostEqualNumbersBetween(0, 1) && rho.Imaginary.AlmostEqualNumbersBetween(0, 1))
                     {
                         // FAIL HERE
                         iterator.Cancel();

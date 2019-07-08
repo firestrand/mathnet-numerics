@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -34,7 +33,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
     using Properties;
 
     /// <summary>
-    /// Slice sampling produces samples from distribition P by uniformly sampling from under the pdf of P using
+    /// Slice sampling produces samples from distribution P by uniformly sampling from under the pdf of P using
     /// a technique described in "Slice Sampling", R. Neal, 2003. All densities are required to be in log space.
     ///
     /// The slice sampler is a stateful sampler. It keeps track of where it currently is in the domain
@@ -112,7 +111,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException(Resources.ArgumentNotNegative);
+                    throw new ArgumentException(Resources.ArgumentNotNegative);
                 }
                 _burnInterval = value;
             }
@@ -128,7 +127,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
             {
                 if (value <= 0.0)
                 {
-                    throw new ArgumentOutOfRangeException(Resources.ArgumentPositive);
+                    throw new ArgumentException(Resources.ArgumentPositive);
                 }
                 _scale = value;
             }

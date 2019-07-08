@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -31,6 +30,7 @@
 using System;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Providers.LinearAlgebra;
 
 namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 {
@@ -44,14 +44,14 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
     internal sealed class DenseGramSchmidt : GramSchmidt
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="DenseGramSchmidt"/> class. This object creates an orthogonal matrix 
+        /// Initializes a new instance of the <see cref="DenseGramSchmidt"/> class. This object creates an orthogonal matrix
         /// using the modified Gram-Schmidt method.
         /// </summary>
         /// <param name="matrix">The matrix to factor.</param>
         /// <exception cref="ArgumentNullException">If <paramref name="matrix"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentException">If <paramref name="matrix"/> row count is less then column count</exception>
         /// <exception cref="ArgumentException">If <paramref name="matrix"/> is rank deficient</exception>
-        public static DenseGramSchmidt Create(DenseMatrix matrix)
+        public static DenseGramSchmidt Create(Matrix<double> matrix)
         {
             if (matrix.RowCount < matrix.ColumnCount)
             {
@@ -109,7 +109,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                     {
                         dot += q[(k1 * rowsQ) + index] * q[(j1 * rowsQ) + index];
                     }
-                    
+
                     r[(j * columnsQ) + k] = dot;
                     for (var i = 0; i < rowsQ; i++)
                     {
@@ -157,7 +157,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                 throw new NotSupportedException("Can only do GramSchmidt factorization for dense matrices at the moment.");
             }
 
-            Control.LinearAlgebraProvider.QRSolveFactored(((DenseMatrix)Q).Values, ((DenseMatrix)FullR).Values, Q.RowCount, FullR.ColumnCount, null, dinput.Values, input.ColumnCount, dresult.Values, QRMethod.Thin);
+            LinearAlgebraControl.Provider.QRSolveFactored(((DenseMatrix)Q).Values, ((DenseMatrix)FullR).Values, Q.RowCount, FullR.ColumnCount, null, dinput.Values, input.ColumnCount, dresult.Values, QRMethod.Thin);
         }
 
         /// <summary>
@@ -192,7 +192,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                 throw new NotSupportedException("Can only do GramSchmidt factorization for dense vectors at the moment.");
             }
 
-            Control.LinearAlgebraProvider.QRSolveFactored(((DenseMatrix)Q).Values, ((DenseMatrix)FullR).Values, Q.RowCount, FullR.ColumnCount, null, dinput.Values, 1, dresult.Values, QRMethod.Thin);
+            LinearAlgebraControl.Provider.QRSolveFactored(((DenseMatrix)Q).Values, ((DenseMatrix)FullR).Values, Q.RowCount, FullR.ColumnCount, null, dinput.Values, 1, dresult.Values, QRMethod.Thin);
         }
     }
 }

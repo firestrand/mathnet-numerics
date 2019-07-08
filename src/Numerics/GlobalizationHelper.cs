@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -28,12 +27,12 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
 namespace MathNet.Numerics
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Globalization;
-
     /// <summary>
     /// Globalized String Handling Helpers
     /// </summary>
@@ -105,7 +104,7 @@ namespace MathNet.Numerics
             {
                 var keyword = keywords[i];
                 int indexOfKeyword;
-                while ((indexOfKeyword = node.Value.IndexOf(keyword)) >= 0)
+                while ((indexOfKeyword = node.Value.IndexOf(keyword, StringComparison.Ordinal)) >= 0)
                 {
                     if (indexOfKeyword != 0)
                     {
@@ -132,7 +131,7 @@ namespace MathNet.Numerics
             }
         }
 
-#if PORTABLE
+#if NETSTANDARD1_3
         /// <summary>
         /// Globalized Parsing: Parse a double number
         /// </summary>
@@ -157,7 +156,7 @@ namespace MathNet.Numerics
             }
 
             double value;
-            if (!Double.TryParse(token.Value, NumberStyles.Any, CultureInfo.CurrentCulture, out value))
+            if (!double.TryParse(token.Value, NumberStyles.Any, CultureInfo.CurrentCulture, out value))
             {
                 throw new FormatException();
             }
@@ -225,7 +224,7 @@ namespace MathNet.Numerics
             }
 
             double value;
-            if (!Double.TryParse(token.Value, NumberStyles.Any, culture, out value))
+            if (!double.TryParse(token.Value, NumberStyles.Any, culture, out value))
             {
                 throw new FormatException();
             }

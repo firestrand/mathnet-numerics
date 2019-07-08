@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -35,14 +34,14 @@ namespace MathNet.Numerics.Statistics.Mcmc
     using Properties;
 
     /// <summary>
-    /// The Hybrid (also called Hamiltonian) Monte Carlo produces samples from distribition P using a set
+    /// The Hybrid (also called Hamiltonian) Monte Carlo produces samples from distribution P using a set
     /// of Hamiltonian equations to guide the sampling process. It uses the negative of the log density as
     /// a potential energy, and a randomly generated momentum to set up a Hamiltonian system, which is then used
     /// to sample the distribution. This can result in a faster convergence than the random walk Metropolis sampler
     /// (<seealso cref="MetropolisSampler{T}"/>).
     /// </summary>
     /// <typeparam name="T">The type of samples this sampler produces.</typeparam>
-    abstract public class HybridMCGeneric<T> : McmcSampler<T>
+    public abstract class HybridMCGeneric<T> : McmcSampler<T>
     {
         /// <summary>
         /// The delegate type that defines a derivative evaluated at a certain point.
@@ -97,7 +96,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <summary>
         /// Gets or sets the number of iterations in the Hamiltonian equation.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">When frogleap steps is negative or zero.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">When frog leap steps is negative or zero.</exception>
         public int FrogLeapSteps
         {
             get { return _frogLeapSteps; }
@@ -125,8 +124,8 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="randomSource">Random number generator used for sampling the momentum.</param>
         /// <param name="diff">The method used for differentiation.</param>
@@ -211,21 +210,21 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// Use for creating temporary objects in the Burn method.
         /// </summary>
         /// <returns>An object of type T.</returns>
-        abstract protected T Create();
+        protected abstract T Create();
 
         /// <summary>
         /// Use for copying objects in the Burn method.
         /// </summary>
         /// <param name="source">The source of copying.</param>
         /// <returns>A copy of the source object.</returns>
-        abstract protected T Copy(T source);
+        protected abstract T Copy(T source);
 
         /// <summary>
         /// Method for doing dot product.
         /// </summary>
         /// <param name="first">First vector/scalar in the product.</param>
         /// <param name="second">Second vector/scalar in the product.</param>
-        abstract protected double DoProduct(T first, T second);
+        protected abstract double DoProduct(T first, T second);
 
         /// <summary>
         /// Method for adding, multiply the second vector/scalar by factor and then
@@ -234,7 +233,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <param name="first">First vector/scalar.</param>
         /// <param name="factor">Scalar factor multiplying by the second vector/scalar.</param>
         /// <param name="second">Second vector/scalar.</param>
-        abstract protected void DoAdd(ref T first, double factor, T second);
+        protected abstract void DoAdd(ref T first, double factor, T second);
 
         /// <summary>
         /// Multiplying the second vector/scalar by factor and then subtract it from
@@ -243,13 +242,13 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <param name="first">First vector/scalar.</param>
         /// <param name="factor">Scalar factor to be multiplied to the second vector/scalar.</param>
         /// <param name="second">Second vector/scalar.</param>
-        abstract protected void DoSubtract(ref T first, double factor, T second);
+        protected abstract void DoSubtract(ref T first, double factor, T second);
 
         /// <summary>
         /// Method for sampling a random momentum.
         /// </summary>
         /// <param name="p">Momentum to be randomized.</param>
-        abstract protected void RandomizeMomentum(ref T p);
+        protected abstract void RandomizeMomentum(ref T p);
 
         /// <summary>
         /// The Hamiltonian equations that is used to produce the new sample.
@@ -283,7 +282,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         {
             if (value < 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentNotNegative);
+                throw new ArgumentOutOfRangeException(nameof(value), Resources.ArgumentNotNegative);
             }
             return value;
         }
@@ -298,7 +297,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         {
             if (value <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentNotNegative);
+                throw new ArgumentOutOfRangeException(nameof(value), Resources.ArgumentNotNegative);
             }
             return value;
         }
@@ -313,7 +312,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         {
             if (value <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentNotNegative);
+                throw new ArgumentOutOfRangeException(nameof(value), Resources.ArgumentNotNegative);
             }
             return value;
         }

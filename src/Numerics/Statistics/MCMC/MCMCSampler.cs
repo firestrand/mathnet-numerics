@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -28,11 +27,12 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
+using System;
+using MathNet.Numerics.Random;
+
 namespace MathNet.Numerics.Statistics.Mcmc
 {
-    using System;
-
-	/// <summary>
+    /// <summary>
     /// A method which samples datapoints from a proposal distribution. The implementation of this sampler
     /// is stateless: no variables are saved between two calls to Sample. This proposal is different from
     /// <seealso cref="LocalProposalSampler{T}"/> in that it doesn't take any parameters; it samples random
@@ -85,7 +85,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <summary>
         /// The random number generator for this class.
         /// </summary>
-        private Random _randomNumberGenerator;
+        private System.Random _randomNumberGenerator;
 
         /// <summary>
         /// Keeps track of the number of accepted samples.
@@ -106,21 +106,21 @@ namespace MathNet.Numerics.Statistics.Mcmc
         {
             Accepts = 0;
             Samples = 0;
-            RandomSource = new Random();
+            RandomSource = SystemRandomSource.Default;
         }
 
         /// <summary>
         /// Gets or sets the random number generator.
         /// </summary>
         /// <exception cref="ArgumentNullException">When the random number generator is null.</exception>
-        public Random RandomSource
+        public System.Random RandomSource
         {
             get { return _randomNumberGenerator; }
             set
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException();
+                    throw new ArgumentNullException(nameof(value));
                 }
                 _randomNumberGenerator = value;
             }

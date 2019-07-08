@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -136,7 +135,7 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Substracts each element of a matrix from a scalar.
+        /// Subtracts each element of a matrix from a scalar.
         /// </summary>
         /// <remarks>This operator will allocate new memory for the result. It will
         /// choose the representation of the provided matrix.</remarks>
@@ -239,7 +238,8 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Computes the modulus of each element of the matrix of the given divisor.
+        /// Computes the pointwise remainder (% operator), where the result has the sign of the dividend,
+        /// of each element of the matrix of the given divisor.
         /// </summary>
         /// <param name="dividend">The matrix whose elements we want to compute the modulus of.</param>
         /// <param name="divisor">The divisor to use.</param>
@@ -247,11 +247,12 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentNullException">If <paramref name="dividend"/> is <see langword="null" />.</exception>
         public static Matrix<T> operator %(Matrix<T> dividend, T divisor)
         {
-            return dividend.Modulus(divisor);
+            return dividend.Remainder(divisor);
         }
 
         /// <summary>
-        /// Computes the modulus of the given dividend of each element of the matrix.
+        /// Computes the pointwise remainder (% operator), where the result has the sign of the dividend,
+        /// of the given dividend of each element of the matrix.
         /// </summary>
         /// <param name="dividend">The dividend we want to compute the modulus of.</param>
         /// <param name="divisor">The matrix whose elements we want to use as divisor.</param>
@@ -259,20 +260,20 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <exception cref="ArgumentNullException">If <paramref name="divisor"/> is <see langword="null" />.</exception>
         public static Matrix<T> operator %(T dividend, Matrix<T> divisor)
         {
-            return divisor.ModulusByThis(dividend);
+            return divisor.RemainderByThis(dividend);
         }
 
         /// <summary>
-        /// Computes the pointwise modulus of each element of two matrices.
+        /// Computes the pointwise remainder (% operator), where the result has the sign of the dividend,
+        /// of each element of two matrices.
         /// </summary>
-        /// <param name="dividend">The matrix whose elements we want to compute the modulus of.</param>
+        /// <param name="dividend">The matrix whose elements we want to compute the remainder of.</param>
         /// <param name="divisor">The divisor to use.</param>
-        /// <returns>The result of the calculation</returns>
         /// <exception cref="ArgumentException">If <paramref name="dividend"/> and <paramref name="divisor"/> are not the same size.</exception>
         /// <exception cref="ArgumentNullException">If <paramref name="dividend"/> is <see langword="null" />.</exception>
         public static Matrix<T> operator %(Matrix<T> dividend, Matrix<T> divisor)
         {
-            return dividend.PointwiseModulus(divisor);
+            return dividend.PointwiseRemainder(divisor);
         }
 
         [SpecialName]
@@ -288,9 +289,191 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         [SpecialName]
-        public static Vector<T> op_DotPercent(Vector<T> dividend, Vector<T> divisor)
+        public static Matrix<T> op_DotPercent(Matrix<T> dividend, Matrix<T> divisor)
         {
-            return dividend.PointwiseModulus(divisor);
+            return dividend.PointwiseRemainder(divisor);
+        }
+
+        [SpecialName]
+        public static Matrix<T> op_DotHat(Matrix<T> matrix, Matrix<T> exponent)
+        {
+            return matrix.PointwisePower(exponent);
+        }
+
+        [SpecialName]
+        public static Matrix<T> op_DotHat(Matrix<T> matrix, T exponent)
+        {
+            return matrix.PointwisePower(exponent);
+        }
+
+        /// <summary>
+        /// Computes the sqrt of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Sqrt(Matrix<T> x)
+        {
+            return x.PointwiseSqrt();
+        }
+
+        /// <summary>
+        /// Computes the exponential of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Exp(Matrix<T> x)
+        {
+            return x.PointwiseExp();
+        }
+
+        /// <summary>
+        /// Computes the log of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Log(Matrix<T> x)
+        {
+            return x.PointwiseLog();
+        }
+
+        /// <summary>
+        /// Computes the log10 of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Log10(Matrix<T> x)
+        {
+            return x.PointwiseLog10();
+        }
+
+        /// <summary>
+        /// Computes the sin of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Sin(Matrix<T> x)
+        {
+            return x.PointwiseSin();
+        }
+
+        /// <summary>
+        /// Computes the cos of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Cos(Matrix<T> x)
+        {
+            return x.PointwiseCos();
+        }
+
+        /// <summary>
+        /// Computes the tan of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Tan(Matrix<T> x)
+        {
+            return x.PointwiseTan();
+        }
+
+        /// <summary>
+        /// Computes the asin of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Asin(Matrix<T> x)
+        {
+            return x.PointwiseAsin();
+        }
+
+        /// <summary>
+        /// Computes the acos of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Acos(Matrix<T> x)
+        {
+            return x.PointwiseAcos();
+        }
+
+        /// <summary>
+        /// Computes the atan of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Atan(Matrix<T> x)
+        {
+            return x.PointwiseAtan();
+        }
+
+        /// <summary>
+        /// Computes the sinh of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Sinh(Matrix<T> x)
+        {
+            return x.PointwiseSinh();
+        }
+
+        /// <summary>
+        /// Computes the cosh of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Cosh(Matrix<T> x)
+        {
+            return x.PointwiseCosh();
+        }
+
+        /// <summary>
+        /// Computes the tanh of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Tanh(Matrix<T> x)
+        {
+            return x.PointwiseTanh();
+        }
+
+        /// <summary>
+        /// Computes the absolute value of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Abs(Matrix<T> x)
+        {
+            return x.PointwiseAbs();
+        }
+
+        /// <summary>
+        /// Computes the floor of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Floor(Matrix<T> x)
+        {
+            return x.PointwiseFloor();
+        }
+
+        /// <summary>
+        /// Computes the ceiling of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Ceiling(Matrix<T> x)
+        {
+            return x.PointwiseCeiling();
+        }
+
+        /// <summary>
+        /// Computes the rounded value of a matrix pointwise
+        /// </summary>
+        /// <param name="x">The input matrix</param>
+        /// <returns></returns>
+        public static Matrix<T> Round(Matrix<T> x)
+        {
+            return x.PointwiseRound();
         }
     }
 }

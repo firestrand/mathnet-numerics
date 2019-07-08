@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -38,8 +37,8 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 {
     /// <summary>
     /// <para>A class which encapsulates the functionality of the QR decomposition.</para>
-    /// <para>Any real square matrix A may be decomposed as A = QR where Q is an orthogonal matrix 
-    /// (its columns are orthogonal unit vectors meaning QTQ = I) and R is an upper triangular matrix 
+    /// <para>Any real square matrix A may be decomposed as A = QR where Q is an orthogonal matrix
+    /// (its columns are orthogonal unit vectors meaning QTQ = I) and R is an upper triangular matrix
     /// (also called right triangular matrix).</para>
     /// </summary>
     /// <remarks>
@@ -70,7 +69,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
             if (method == QRMethod.Full)
             {
                 r = matrix.Clone();
-                q = matrix.CreateMatrix(matrix.RowCount, matrix.RowCount);
+                q = Matrix<double>.Build.SameAs(matrix, matrix.RowCount, matrix.RowCount, fullyMutable: true);
 
                 for (var i = 0; i < matrix.RowCount; i++)
                 {
@@ -80,12 +79,12 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                 for (var i = 0; i < minmn; i++)
                 {
                     u[i] = GenerateColumn(r, i, i);
-                    ComputeQR(u[i], r, i, matrix.RowCount, i + 1, matrix.ColumnCount, Control.NumberOfParallelWorkerThreads);
+                    ComputeQR(u[i], r, i, matrix.RowCount, i + 1, matrix.ColumnCount, Control.MaxDegreeOfParallelism);
                 }
 
                 for (var i = minmn - 1; i >= 0; i--)
                 {
-                    ComputeQR(u[i], q, i, matrix.RowCount, i, matrix.RowCount, Control.NumberOfParallelWorkerThreads);
+                    ComputeQR(u[i], q, i, matrix.RowCount, i, matrix.RowCount, Control.MaxDegreeOfParallelism);
                 }
             }
             else
@@ -95,7 +94,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                 for (var i = 0; i < minmn; i++)
                 {
                     u[i] = GenerateColumn(q, i, i);
-                    ComputeQR(u[i], q, i, matrix.RowCount, i + 1, matrix.ColumnCount, Control.NumberOfParallelWorkerThreads);
+                    ComputeQR(u[i], q, i, matrix.RowCount, i + 1, matrix.ColumnCount, Control.MaxDegreeOfParallelism);
                 }
 
                 r = q.SubMatrix(0, matrix.ColumnCount, 0, matrix.ColumnCount);
@@ -108,7 +107,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 
                 for (var i = minmn - 1; i >= 0; i--)
                 {
-                    ComputeQR(u[i], q, i, matrix.RowCount, i, matrix.ColumnCount, Control.NumberOfParallelWorkerThreads);
+                    ComputeQR(u[i], q, i, matrix.RowCount, i, matrix.ColumnCount, Control.MaxDegreeOfParallelism);
                 }
             }
 

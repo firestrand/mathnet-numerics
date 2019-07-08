@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -30,24 +29,28 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Storage
 {
     [Serializable]
+    [DataContract(Namespace = "urn:MathNet/Numerics/LinearAlgebra")]
     public abstract partial class VectorStorage<T> : IEquatable<VectorStorage<T>>
         where T : struct, IEquatable<T>, IFormattable
     {
         // [ruegg] public fields are OK here
 
         protected static readonly T Zero = BuilderInstance<T>.Vector.Zero;
+
+        [DataMember(Order = 1)]
         public readonly int Length;
 
         protected VectorStorage(int length)
         {
             if (length <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentMustBePositive);
+                throw new ArgumentOutOfRangeException(nameof(length), Resources.ArgumentMustBePositive);
             }
 
             Length = length;
@@ -98,22 +101,6 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// <remarks>WARNING: This method is not thread safe. Use "lock" with it and be sure to avoid deadlocks.</remarks>
         public abstract void At(int index, T value);
 
-        public virtual void Clear()
-        {
-            for (var i = 0; i < Length; i++)
-            {
-                At(i, Zero);
-            }
-        }
-
-        public virtual void Clear(int index, int count)
-        {
-            for (var i = index; i < index + count; i++)
-            {
-                At(i, Zero);
-            }
-        }
-
         /// <summary>
         /// Indicates whether the current object is equal to another object of the same type.
         /// </summary>
@@ -160,7 +147,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         /// true if the specified <see cref="T:System.Object"/> is equal to the current <see cref="T:System.Object"/>; otherwise, false.
         /// </returns>
         /// <param name="obj">The <see cref="T:System.Object"/> to compare with the current <see cref="T:System.Object"/>. </param>
-        public override sealed bool Equals(object obj)
+        public sealed override bool Equals(object obj)
         {
             return Equals(obj as VectorStorage<T>);
         }
@@ -185,13 +172,31 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             return hash;
         }
 
+        // CLEARING
+
+        public virtual void Clear()
+        {
+            for (var i = 0; i < Length; i++)
+            {
+                At(i, Zero);
+            }
+        }
+
+        public virtual void Clear(int index, int count)
+        {
+            for (var i = index; i < index + count; i++)
+            {
+                At(i, Zero);
+            }
+        }
+
         // VECTOR COPY
 
-        public void CopyTo(VectorStorage<T> target, bool skipClearing = false)
+        public void CopyTo(VectorStorage<T> target, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
             }
 
             if (ReferenceEquals(this, target))
@@ -201,13 +206,13 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
             if (Length != target.Length)
             {
-                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "target");
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
             }
 
-            CopyToUnchecked(target, skipClearing);
+            CopyToUnchecked(target, existingData);
         }
 
-        internal virtual void CopyToUnchecked(VectorStorage<T> target, bool skipClearing = false)
+        internal virtual void CopyToUnchecked(VectorStorage<T> target, ExistingData existingData)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -217,23 +222,23 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // ROW COPY
 
-        public void CopyToRow(MatrixStorage<T> target, int rowIndex, bool skipClearing = false)
+        public void CopyToRow(MatrixStorage<T> target, int rowIndex, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
             }
 
             if (Length != target.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "target");
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
             }
 
             ValidateRowRange(target, rowIndex);
-            CopyToRowUnchecked(target, rowIndex, skipClearing);
+            CopyToRowUnchecked(target, rowIndex, existingData);
         }
 
-        internal virtual void CopyToRowUnchecked(MatrixStorage<T> target, int rowIndex, bool skipClearing = false)
+        internal virtual void CopyToRowUnchecked(MatrixStorage<T> target, int rowIndex, ExistingData existingData)
         {
             for (int j = 0; j < Length; j++)
             {
@@ -243,23 +248,23 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // COLUMN COPY
 
-        public void CopyToColumn(MatrixStorage<T> target, int columnIndex, bool skipClearing = false)
+        public void CopyToColumn(MatrixStorage<T> target, int columnIndex, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
             }
 
             if (Length != target.RowCount)
             {
-                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "target");
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
             }
 
             ValidateColumnRange(target, columnIndex);
-            CopyToColumnUnchecked(target, columnIndex, skipClearing);
+            CopyToColumnUnchecked(target, columnIndex, existingData);
         }
 
-        internal virtual void CopyToColumnUnchecked(MatrixStorage<T> target, int columnIndex, bool skipClearing = false)
+        internal virtual void CopyToColumnUnchecked(MatrixStorage<T> target, int columnIndex, ExistingData existingData)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -271,20 +276,24 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         public void CopySubVectorTo(VectorStorage<T> target,
             int sourceIndex, int targetIndex, int count,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (count == 0)
+            {
+                return;
             }
 
             ValidateSubVectorRange(target, sourceIndex, targetIndex, count);
-            CopySubVectorToUnchecked(target, sourceIndex, targetIndex, count, skipClearing);
+            CopySubVectorToUnchecked(target, sourceIndex, targetIndex, count, existingData);
         }
 
         internal virtual void CopySubVectorToUnchecked(VectorStorage<T> target,
-            int sourceIndex, int targetIndex, int count,
-            bool skipClearing = false)
+            int sourceIndex, int targetIndex, int count, ExistingData existingData)
         {
             if (ReferenceEquals(this, target))
             {
@@ -311,20 +320,24 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         public void CopyToSubRow(MatrixStorage<T> target, int rowIndex,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (columnCount == 0)
+            {
+                return;
             }
 
             ValidateSubRowRange(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount);
-            CopyToSubRowUnchecked(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
+            CopyToSubRowUnchecked(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount, existingData);
         }
 
         internal virtual void CopyToSubRowUnchecked(MatrixStorage<T> target, int rowIndex,
-            int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            int sourceColumnIndex, int targetColumnIndex, int columnCount, ExistingData existingData)
         {
             for (int j = sourceColumnIndex, jj = targetColumnIndex; j < sourceColumnIndex + columnCount; j++, jj++)
             {
@@ -336,25 +349,46 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         public void CopyToSubColumn(MatrixStorage<T> target, int columnIndex,
             int sourceRowIndex, int targetRowIndex, int rowCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (rowCount == 0)
+            {
+                return;
             }
 
             ValidateSubColumnRange(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount);
-            CopyToSubColumnUnchecked(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount, skipClearing);
+            CopyToSubColumnUnchecked(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount, existingData);
         }
 
         internal virtual void CopyToSubColumnUnchecked(MatrixStorage<T> target, int columnIndex,
-            int sourceRowIndex, int targetRowIndex, int rowCount,
-            bool skipClearing = false)
+            int sourceRowIndex, int targetRowIndex, int rowCount, ExistingData existingData)
         {
             for (int i = sourceRowIndex, ii = targetRowIndex; i < sourceRowIndex + rowCount; i++, ii++)
             {
                 target.At(ii, columnIndex, At(i));
             }
+        }
+
+        // EXTRACT
+
+        public virtual T[] ToArray()
+        {
+            var ret = new T[Length];
+            for (int i = 0; i < ret.Length; i++)
+            {
+                ret[i] = At(i);
+            }
+            return ret;
+        }
+
+        public virtual T[] AsArray()
+        {
+            return null;
         }
 
         // ENUMERATION
@@ -399,9 +433,55 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        // FUNCTIONAL COMBINATORS
+        // FIND
 
-        public virtual void MapInplace(Func<T, T> f, bool forceMapZeros = false)
+        public virtual Tuple<int, T> Find(Func<T, bool> predicate, Zeros zeros)
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                var item = At(i);
+                if (predicate(item))
+                {
+                    return new Tuple<int, T>(i, item);
+                }
+            }
+            return null;
+        }
+
+        public Tuple<int, T, TOther> Find2<TOther>(VectorStorage<TOther> other, Func<T, TOther, bool> predicate, Zeros zeros)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            if (other == null)
+            {
+                throw new ArgumentNullException(nameof(other));
+            }
+
+            if (Length != other.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(other));
+            }
+
+            return Find2Unchecked(other, predicate, zeros);
+        }
+
+        internal virtual Tuple<int, T, TOther> Find2Unchecked<TOther>(VectorStorage<TOther> other, Func<T, TOther, bool> predicate, Zeros zeros)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                var item = At(i);
+                var otherItem = other.At(i);
+                if (predicate(item, otherItem))
+                {
+                    return new Tuple<int, T, TOther>(i, item, otherItem);
+                }
+            }
+            return null;
+        }
+
+        // FUNCTIONAL COMBINATORS: MAP
+
+        public virtual void MapInplace(Func<T, T> f, Zeros zeros)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -409,12 +489,124 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        public virtual void MapIndexedInplace(Func<int, T, T> f, bool forceMapZeros = false)
+        public virtual void MapIndexedInplace(Func<int, T, T> f, Zeros zeros)
         {
             for (int i = 0; i < Length; i++)
             {
                 At(i, f(i, At(i)));
             }
+        }
+
+        public void MapTo<TU>(VectorStorage<TU> target, Func<T, TU> f, Zeros zeros, ExistingData existingData)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (Length != target.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
+            }
+
+            MapToUnchecked(target, f, zeros, existingData);
+        }
+
+        internal virtual void MapToUnchecked<TU>(VectorStorage<TU> target, Func<T, TU> f, Zeros zeros, ExistingData existingData)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                target.At(i, f(At(i)));
+            }
+        }
+
+        public void MapIndexedTo<TU>(VectorStorage<TU> target, Func<int, T, TU> f, Zeros zeros, ExistingData existingData)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (Length != target.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
+            }
+
+            MapIndexedToUnchecked(target, f, zeros, existingData);
+        }
+
+        internal virtual void MapIndexedToUnchecked<TU>(VectorStorage<TU> target, Func<int, T, TU> f, Zeros zeros, ExistingData existingData)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                target.At(i, f(i, At(i)));
+            }
+        }
+
+        public void Map2To(VectorStorage<T> target, VectorStorage<T> other, Func<T, T, T> f, Zeros zeros, ExistingData existingData)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            if (other == null)
+            {
+                throw new ArgumentNullException(nameof(other));
+            }
+
+            if (Length != target.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(target));
+            }
+
+            if (Length != other.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(other));
+            }
+
+            Map2ToUnchecked(target, other, f, zeros, existingData);
+        }
+
+        internal virtual void Map2ToUnchecked(VectorStorage<T> target, VectorStorage<T> other, Func<T, T, T> f, Zeros zeros, ExistingData existingData)
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                target.At(i, f(At(i), other.At(i)));
+            }
+        }
+
+        // FUNCTIONAL COMBINATORS: FOLD
+
+        public TState Fold2<TOther, TState>(VectorStorage<TOther> other, Func<TState, T, TOther, TState> f, TState state, Zeros zeros)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            if (other == null)
+            {
+                throw new ArgumentNullException(nameof(other));
+            }
+
+            if (Length != other.Length)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(other));
+            }
+
+            return Fold2Unchecked(other, f, state, zeros);
+        }
+
+        internal virtual TState Fold2Unchecked<TOther, TState>(VectorStorage<TOther> other, Func<TState, T, TOther, TState> f, TState state, Zeros zeros)
+            where TOther : struct, IEquatable<TOther>, IFormattable
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                state = f(state, At(i), other.At(i));
+            }
+
+            return state;
         }
     }
 }

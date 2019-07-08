@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -30,15 +29,11 @@
 
 using System;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Providers.LinearAlgebra;
 
 namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// Eigenvalues and eigenvectors of a real matrix.
@@ -62,9 +57,10 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// the eigenvalue decomposition when the constructor is called and cache it's decomposition.
         /// </summary>
         /// <param name="matrix">The matrix to factor.</param>
+        /// <param name="symmetricity">If it is known whether the matrix is symmetric or not the routine can skip checking it itself.</param>
         /// <exception cref="ArgumentNullException">If <paramref name="matrix"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentException">If EVD algorithm failed to converge with matrix <paramref name="matrix"/>.</exception>
-        public static DenseEvd Create(DenseMatrix matrix)
+        public static DenseEvd Create(DenseMatrix matrix, Symmetricity symmetricity)
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
@@ -78,17 +74,22 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
             var blockDiagonal = new DenseMatrix(order);
             var eigenValues = new LinearAlgebra.Complex.DenseVector(order);
 
-            var isSymmetric = true;
-
-            for (var i = 0; isSymmetric && i < order; i++)
+            bool isSymmetric;
+            switch (symmetricity)
             {
-                for (var j = 0; isSymmetric && j < order; j++)
-                {
-                    isSymmetric &= matrix.At(i, j) == matrix.At(j, i);
-                }
+                case Symmetricity.Symmetric:
+                case Symmetricity.Hermitian:
+                    isSymmetric = true;
+                    break;
+                case Symmetricity.Asymmetric:
+                    isSymmetric = false;
+                    break;
+                default:
+                    isSymmetric = matrix.IsSymmetric();
+                    break;
             }
 
-            Control.LinearAlgebraProvider.EigenDecomp(isSymmetric, order, matrix.Values, eigenVectors.Values, eigenValues.Values, blockDiagonal.Values);
+            LinearAlgebraControl.Provider.EigenDecomp(isSymmetric, order, matrix.Values, eigenVectors.Values, eigenValues.Values, blockDiagonal.Values);
 
             return new DenseEvd(eigenVectors, eigenValues, blockDiagonal, isSymmetric);
         }
@@ -105,9 +106,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// <param name="d">Arrays for internal storage of real parts of eigenvalues</param>
         /// <param name="e">Arrays for internal storage of imaginary parts of eigenvalues</param>
         /// <param name="order">Order of initial matrix</param>
-        /// <remarks>This is derived from the Algol procedures tred2 by 
-        /// Bowdler, Martin, Reinsch, and Wilkinson, Handbook for 
-        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding 
+        /// <remarks>This is derived from the Algol procedures tred2 by
+        /// Bowdler, Martin, Reinsch, and Wilkinson, Handbook for
+        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding
         /// Fortran subroutine in EISPACK.</remarks>
         internal static void SymmetricTridiagonalize(double[] a, double[] d, double[] e, int order)
         {
@@ -276,7 +277,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 
             var f = 0.0;
             var tst1 = 0.0;
-            var eps = Precision.DoubleMachinePrecision;
+            var eps = Precision.DoublePrecision;
             for (var l = 0; l < order; l++)
             {
                 // Find small subdiagonal element
@@ -357,7 +358,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                         e[l] = s*p;
                         d[l] = c*p;
 
-                        // Check for convergence. If too many iterations have been performed, 
+                        // Check for convergence. If too many iterations have been performed,
                         // throw exception that Convergence Failed
                         if (iter >= maxiter)
                         {

@@ -2,10 +2,9 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
-// 
+//
 // Copyright (c) 2009-2013 Math.NET
-// 
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -14,10 +13,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -36,10 +35,9 @@ namespace MathNet.Numerics.RootFinding
 {
     public static class ZeroCrossingBracketing
     {
-        public static IEnumerable<Tuple<double, double>> FindIntervalsWithin(Func<double, double> f, double lowerBound, double upperBound, int parts)
+        public static IEnumerable<Tuple<double, double>> FindIntervalsWithin(Func<double, double> f, double lowerBound, double upperBound, int subdivisions)
         {
             // TODO: Consider binary-style search instead of linear scan
-
             double fmin = f(lowerBound);
             double fmax = f(upperBound);
 
@@ -49,11 +47,11 @@ namespace MathNet.Numerics.RootFinding
                 yield break;
             }
 
-            double subdiv = (upperBound - lowerBound)/parts;
+            double subdiv = (upperBound - lowerBound)/subdivisions;
             double smin = lowerBound;
             int sign = Math.Sign(fmin);
 
-            for (int k = 0; k < parts; k++)
+            for (int k = 0; k < subdivisions; k++)
             {
                 double smax = smin + subdiv;
                 double sfmax = f(smax);
@@ -63,11 +61,13 @@ namespace MathNet.Numerics.RootFinding
                     smin = smax;
                     continue;
                 }
+
                 if (Math.Sign(sfmax) != sign)
                 {
                     yield return new Tuple<double, double>(smin, smax);
                     sign = Math.Sign(sfmax);
                 }
+
                 smin = smax;
             }
         }
@@ -82,9 +82,12 @@ namespace MathNet.Numerics.RootFinding
         /// <remarks>This iterative methods stops when two values with opposite signs are found.</remarks>
         public static bool Expand(Func<double, double> f, ref double lowerBound, ref double upperBound, double factor = 1.6, int maxIterations = 50)
         {
+            double originalLowerBound = lowerBound;
+            double originalUpperBound = upperBound;
+
             if (lowerBound >= upperBound)
             {
-                throw new ArgumentOutOfRangeException("upperBound", string.Format(Resources.ArgumentOutOfRangeGreater, "xmax", "xmin"));
+                throw new ArgumentOutOfRangeException(nameof(upperBound), string.Format(Resources.ArgumentOutOfRangeGreater, "xmax", "xmin"));
             }
 
             double fmin = f(lowerBound);
@@ -99,17 +102,73 @@ namespace MathNet.Numerics.RootFinding
 
                 if (Math.Abs(fmin) < Math.Abs(fmax))
                 {
-                    lowerBound += factor * (lowerBound - upperBound);
+                    lowerBound += factor*(lowerBound - upperBound);
                     fmin = f(lowerBound);
                 }
                 else
                 {
-                    upperBound += factor * (upperBound - lowerBound);
+                    upperBound += factor*(upperBound - lowerBound);
                     fmax = f(upperBound);
                 }
             }
 
+            lowerBound = originalLowerBound;
+            upperBound = originalUpperBound;
             return false;
+        }
+
+        public static bool Reduce(Func<double, double> f, ref double lowerBound, ref double upperBound, int subdivisions = 1000)
+        {
+            double originalLowerBound = lowerBound;
+            double originalUpperBound = upperBound;
+
+            if (lowerBound >= upperBound)
+            {
+                throw new ArgumentOutOfRangeException(nameof(upperBound), string.Format(Resources.ArgumentOutOfRangeGreater, "xmax", "xmin"));
+            }
+
+            // TODO: Consider binary-style search instead of linear scan
+            double fmin = f(lowerBound);
+            double fmax = f(upperBound);
+
+            if (Math.Sign(fmin) != Math.Sign(fmax))
+            {
+                return true;
+            }
+
+            double subdiv = (upperBound - lowerBound) / subdivisions;
+            double smin = lowerBound;
+            int sign = Math.Sign(fmin);
+
+            for (int k = 0; k < subdivisions; k++)
+            {
+                double smax = smin + subdiv;
+                double sfmax = f(smax);
+                if (double.IsInfinity(sfmax))
+                {
+                    // expand interval to include pole
+                    smin = smax;
+                    continue;
+                }
+
+                if (Math.Sign(sfmax) != sign)
+                {
+                    lowerBound = smin;
+                    upperBound = smax;
+                    return true;
+                }
+
+                smin = smax;
+            }
+
+            lowerBound = originalLowerBound;
+            upperBound = originalUpperBound;
+            return false;
+        }
+
+        public static bool ExpandReduce(Func<double, double> f, ref double lowerBound, ref double upperBound, double expansionFactor = 1.6, int expansionMaxIterations = 50, int reduceSubdivisions = 100)
+        {
+            return Expand(f, ref lowerBound, ref upperBound, expansionFactor, expansionMaxIterations) || Reduce(f, ref lowerBound, ref upperBound, reduceSubdivisions);
         }
     }
 }

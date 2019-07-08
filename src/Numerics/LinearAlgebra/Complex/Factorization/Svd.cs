@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -35,12 +34,7 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// <para>A class which encapsulates the functionality of the singular value decomposition (SVD).</para>
@@ -71,7 +65,8 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         {
             get
             {
-                return S.Count(t => !t.Magnitude.AlmostEqual(0.0));
+                double tolerance = Precision.EpsilonOf(S.AbsoluteMaximum().Magnitude)*Math.Max(U.RowCount, VT.RowCount);
+                return S.Count(t => t.Magnitude > tolerance);
             }
         }
 
@@ -79,7 +74,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Factorization
         /// Gets the two norm of the <see cref="Matrix{T}"/>.
         /// </summary>
         /// <returns>The 2-norm of the <see cref="Matrix{T}"/>.</returns>
-        public override Complex Norm2
+        public override double L2Norm
         {
             get
             {

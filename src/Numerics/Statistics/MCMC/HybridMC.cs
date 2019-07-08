@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -31,11 +30,10 @@
 using System;
 using System.Linq;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.Random;
 
 namespace MathNet.Numerics.Statistics.Mcmc
 {
-    using Random = System.Random;
-
     /// <summary>
     /// A hybrid Monte Carlo sampler for multivariate distributions.
     /// </summary>
@@ -81,12 +79,12 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
         public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval = 0)
-            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, new double[x0.Count()], new Random(), Grad)
+            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, new double[x0.Length], SystemRandomSource.Default, Grad)
         {
             for (int i = 0; i < _length; i++)
             {
@@ -103,14 +101,14 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviations of the normal distributions that are used to sample
         /// the components of the momentum.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
         public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double[] pSdv)
-            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, new Random())
+            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, SystemRandomSource.Default)
         {
         }
 
@@ -123,14 +121,14 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviations of the normal distributions that are used to sample
         /// the components of the momentum.</param>
         /// <param name="randomSource">Random number generator used for sampling the momentum.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
-        public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double[] pSdv, Random randomSource)
+        public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double[] pSdv, System.Random randomSource)
             : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, randomSource, Grad)
         {
         }
@@ -143,8 +141,8 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviations of the normal distributions that are used to sample
         /// the components of the momentum.</param>
@@ -152,10 +150,10 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <param name="diff">The method used for numerical differentiation.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
         /// <exception cref="ArgumentOutOfRangeException">When the length of pSdv is not the same as x0.</exception>
-        public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double[] pSdv, Random randomSource, DiffMethod diff)
+        public HybridMC(double[] x0, DensityLn<double[]> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double[] pSdv, System.Random randomSource, DiffMethod diff)
             : base(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, randomSource, diff)
         {
-            _length = x0.Count();
+            _length = x0.Length;
             MomentumStdDev = pSdv;
 
             Initialize(x0);
@@ -184,15 +182,15 @@ namespace MathNet.Numerics.Statistics.Mcmc
         {
             if (pSdv == null)
             {
-                throw new ArgumentNullException("pSdv", "Standard deviation cannot be null.");
+                throw new ArgumentNullException(nameof(pSdv), "Standard deviation cannot be null.");
             }
-            if (pSdv.Count() != _length)
+            if (pSdv.Length != _length)
             {
-                throw new ArgumentOutOfRangeException("pSdv", "Standard deviation of momentum must have same length as sample.");
+                throw new ArgumentOutOfRangeException(nameof(pSdv), "Standard deviation of momentum must have same length as sample.");
             }
             if (pSdv.Any(sdv => sdv < 0))
             {
-                throw new ArgumentOutOfRangeException("pSdv", "Standard deviation must be positive.");
+                throw new ArgumentOutOfRangeException(nameof(pSdv), "Standard deviation must be positive.");
             }
         }
 
@@ -204,7 +202,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         protected override double[] Copy(double[] source)
         {
             var destination = new double[_length];
-            Array.Copy(source, destination, _length);
+            Array.Copy(source, 0, destination, 0, _length);
             return destination;
         }
 
@@ -264,15 +262,15 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <param name="function">Function which the gradient is to be evaluated.</param>
         /// <param name="x">The location where the gradient is to be evaluated.</param>
         /// <returns>The gradient of the function at the point x.</returns>
-        static private double[] Grad(DensityLn<double[]> function, double[] x)
+        static double[] Grad(DensityLn<double[]> function, double[] x)
         {
             int length = x.Length;
             var returnValue = new double[length];
             var increment = new double[length];
             var decrement = new double[length];
 
-            Array.Copy(x, increment, length);
-            Array.Copy(x, decrement, length);
+            Array.Copy(x, 0, increment, 0, length);
+            Array.Copy(x, 0, decrement, 0, length);
 
             for (int i = 0; i < length; i++)
             {

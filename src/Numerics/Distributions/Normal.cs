@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -31,26 +30,22 @@
 using System;
 using System.Collections.Generic;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
 
 namespace MathNet.Numerics.Distributions
 {
     /// <summary>
     /// Continuous Univariate Normal distribution, also known as Gaussian distribution.
-    /// For details about this distribution, see 
+    /// For details about this distribution, see
     /// <a href="http://en.wikipedia.org/wiki/Normal_distribution">Wikipedia - Normal distribution</a>.
     /// </summary>
-    /// <remarks><para>The distribution will use the <see cref="System.Random"/> by default. 
-    /// Users can get/set the random number generator by using the <see cref="RandomSource"/> property.</para>
-    /// <para>The statistics classes will check all the incoming parameters whether they are in the allowed
-    /// range. This might involve heavy computation. Optionally, by setting Control.CheckDistributionParameters
-    /// to <c>false</c>, all parameter checks can be turned off.</para></remarks>
     public class Normal : IContinuousDistribution
     {
         System.Random _random;
 
-        double _mean;
-        double _stdDev;
+        readonly double _mean;
+        readonly double _stdDev;
 
         /// <summary>
         /// Initializes a new instance of the Normal class. This is a normal distribution with mean 0.0
@@ -81,8 +76,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
         public Normal(double mean, double stddev)
         {
-            _random = new System.Random();
-            SetParameters(mean, stddev);
+            if (!IsValidParameterSet(mean, stddev))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = SystemRandomSource.Default;
+            _mean = mean;
+            _stdDev = stddev;
         }
 
         /// <summary>
@@ -94,8 +95,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="randomSource">The random number generator which is used to draw random samples.</param>
         public Normal(double mean, double stddev, System.Random randomSource)
         {
-            _random = randomSource ?? new System.Random();
-            SetParameters(mean, stddev);
+            if (!IsValidParameterSet(mean, stddev))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = randomSource ?? SystemRandomSource.Default;
+            _mean = mean;
+            _stdDev = stddev;
         }
 
         /// <summary>
@@ -143,8 +150,8 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: normfit</remarks>
         public static Normal Estimate(IEnumerable<double> samples, System.Random randomSource = null)
         {
-            var meanVariance = samples.MeanVariance();
-            return new Normal(meanVariance.Item1, Math.Sqrt(meanVariance.Item2), randomSource);
+            var meanStdDev = samples.MeanStandardDeviation();
+            return new Normal(meanStdDev.Item1, meanStdDev.Item2, randomSource);
         }
 
         /// <summary>
@@ -157,74 +164,54 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="mean">The mean (μ) of the normal distribution.</param>
         /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double mean, double stddev)
+        public static bool IsValidParameterSet(double mean, double stddev)
         {
-            if (stddev < 0.0 || Double.IsNaN(mean) || Double.IsNaN(stddev))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _mean = mean;
-            _stdDev = stddev;
+            return stddev >= 0.0 && !double.IsNaN(mean);
         }
 
         /// <summary>
-        /// Gets or sets the mean (μ) of the normal distribution.
+        /// Gets the mean (μ) of the normal distribution.
         /// </summary>
         public double Mean
         {
             get { return _mean; }
-            set { SetParameters(value, _stdDev); }
         }
 
         /// <summary>
-        /// Gets or sets the standard deviation (σ) of the normal distribution. Range: σ ≥ 0.
+        /// Gets the standard deviation (σ) of the normal distribution. Range: σ ≥ 0.
         /// </summary>
         public double StdDev
         {
             get { return _stdDev; }
-            set { SetParameters(_mean, value); }
         }
 
         /// <summary>
-        /// Gets or sets the variance of the normal distribution.
+        /// Gets the variance of the normal distribution.
         /// </summary>
         public double Variance
         {
             get { return _stdDev*_stdDev; }
-            set { SetParameters(_mean, Math.Sqrt(value)); }
         }
 
         /// <summary>
-        /// Gets or sets the precision of the normal distribution.
+        /// Gets the precision of the normal distribution.
         /// </summary>
         public double Precision
         {
             get { return 1.0/(_stdDev*_stdDev); }
-            set
-            {
-                var sdev = 1.0/Math.Sqrt(value);
-                // Handle the case when the precision is -0.
-                if (Double.IsInfinity(sdev))
-                {
-                    sdev = Double.PositiveInfinity;
-                }
-                SetParameters(_mean, sdev);
-            }
         }
 
         /// <summary>
-        /// Gets or sets the random number generator which is used to draw random samples.
+        /// Gets the random number generator which is used to draw random samples.
         /// </summary>
         public System.Random RandomSource
         {
             get { return _random; }
-            set { _random = value ?? new System.Random(); }
+            set { _random = value ?? SystemRandomSource.Default; }
         }
 
         /// <summary>
@@ -264,7 +251,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Minimum
         {
-            get { return Double.NegativeInfinity; }
+            get { return double.NegativeInfinity; }
         }
 
         /// <summary>
@@ -272,7 +259,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Maximum
         {
-            get { return Double.PositiveInfinity; }
+            get { return double.PositiveInfinity; }
         }
 
         /// <summary>
@@ -328,7 +315,15 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public double Sample()
         {
-            return _mean + (_stdDev*SampleStandardBoxMuller(_random).Item1);
+            return SampleUnchecked(_random, _mean, _stdDev);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _mean, _stdDev);
         }
 
         /// <summary>
@@ -337,33 +332,112 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
+            return SamplesUnchecked(_random, _mean, _stdDev);
+        }
+
+        internal static double SampleUnchecked(System.Random rnd, double mean, double stddev)
+        {
+            double x, y;
+            while (!PolarTransform(rnd.NextDouble(), rnd.NextDouble(), out x, out y))
+            {
+            }
+
+            return mean + (stddev*x);
+        }
+
+        internal static IEnumerable<double> SamplesUnchecked(System.Random rnd, double mean, double stddev)
+        {
             while (true)
             {
-                var sample = SampleStandardBoxMuller(_random);
-                yield return _mean + (_stdDev*sample.Item1);
-                yield return _mean + (_stdDev*sample.Item2);
+                double x, y;
+                if (!PolarTransform(rnd.NextDouble(), rnd.NextDouble(), out x, out y))
+                {
+                    continue;
+                }
+
+                yield return mean + (stddev*x);
+                yield return mean + (stddev*y);
             }
         }
 
-        /// <summary>
-        /// Samples a pair of standard normal distributed random variables using the <i>Box-Muller</i> algorithm.
-        /// </summary>
-        /// <param name="rnd">The random number generator to use.</param>
-        /// <returns>a pair of random numbers from the standard normal distribution.</returns>
-        static Tuple<double, double> SampleStandardBoxMuller(System.Random rnd)
+        internal static void SamplesUnchecked(System.Random rnd, double[] values, double mean, double stddev)
         {
-            var v1 = (2.0 * rnd.NextDouble()) - 1.0;
-            var v2 = (2.0 * rnd.NextDouble()) - 1.0;
-            var r = (v1 * v1) + (v2 * v2);
-            while (r >= 1.0 || r == 0.0)
+            if (values.Length == 0)
             {
-                v1 = (2.0 * rnd.NextDouble()) - 1.0;
-                v2 = (2.0 * rnd.NextDouble()) - 1.0;
-                r = (v1 * v1) + (v2 * v2);
+                return;
             }
 
-            var fac = Math.Sqrt(-2.0 * Math.Log(r) / r);
-            return new Tuple<double, double>(v1 * fac, v2 * fac);
+            // Since we only accept points within the unit circle
+            // we need to generate roughly 4/pi=1.27 times the numbers needed.
+            int n = (int)Math.Ceiling(values.Length*4*Constants.InvPi);
+            if (n.IsOdd())
+            {
+                n++;
+            }
+
+            var uniform = rnd.NextDoubles(n);
+
+            // Polar transform
+            double x, y;
+            int index = 0;
+            for (int i = 0; i < uniform.Length && index < values.Length; i += 2)
+            {
+                if (!PolarTransform(uniform[i], uniform[i + 1], out x, out y))
+                {
+                    continue;
+                }
+
+                values[index++] = mean + stddev*x;
+                if (index == values.Length)
+                {
+                    return;
+                }
+
+                values[index++] = mean + stddev*y;
+                if (index == values.Length)
+                {
+                    return;
+                }
+            }
+
+            // remaining, if any
+            while (index < values.Length)
+            {
+                if (!PolarTransform(rnd.NextDouble(), rnd.NextDouble(), out x, out y))
+                {
+                    continue;
+                }
+
+                values[index++] = mean + stddev*x;
+                if (index == values.Length)
+                {
+                    return;
+                }
+
+                values[index++] = mean + stddev*y;
+                if (index == values.Length)
+                {
+                    return;
+                }
+            }
+        }
+
+        static bool PolarTransform(double a, double b, out double x, out double y)
+        {
+            var v1 = (2.0*a) - 1.0;
+            var v2 = (2.0*b) - 1.0;
+            var r = (v1*v1) + (v2*v2);
+            if (r >= 1.0 || r == 0.0)
+            {
+                x = 0;
+                y = 0;
+                return false;
+            }
+
+            var fac = Math.Sqrt(-2.0*Math.Log(r)/r);
+            x = v1*fac;
+            y = v2*fac;
+            return true;
         }
 
         /// <summary>
@@ -377,7 +451,10 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: normpdf</remarks>
         public static double PDF(double mean, double stddev, double x)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             var d = (x - mean)/stddev;
             return Math.Exp(-0.5*d*d)/(Constants.Sqrt2Pi*stddev);
@@ -393,7 +470,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double mean, double stddev, double x)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             var d = (x - mean)/stddev;
             return (-0.5*d*d) - Math.Log(stddev) - Constants.LogSqrt2Pi;
@@ -410,9 +490,12 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: normcdf</remarks>
         public static double CDF(double mean, double stddev, double x)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            return 0.5*(1.0 + SpecialFunctions.Erf((x - mean)/(stddev*Constants.Sqrt2)));
+            return 0.5*SpecialFunctions.Erfc((mean - x)/(stddev*Constants.Sqrt2));
         }
 
         /// <summary>
@@ -427,7 +510,10 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: norminv</remarks>
         public static double InvCDF(double mean, double stddev, double p)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return mean - (stddev*Constants.Sqrt2*SpecialFunctions.ErfcInv(2.0*p));
         }
@@ -441,9 +527,12 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public static double Sample(System.Random rnd, double mean, double stddev)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            return mean + (stddev*SampleStandardBoxMuller(rnd).Item1);
+            return SampleUnchecked(rnd, mean, stddev);
         }
 
         /// <summary>
@@ -455,14 +544,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double mean, double stddev)
         {
-            if (stddev < 0.0) throw new ArgumentOutOfRangeException("stddev", Resources.InvalidDistributionParameters);
-
-            while (true)
+            if (stddev < 0.0)
             {
-                var sample = SampleStandardBoxMuller(rnd);
-                yield return mean + (stddev*sample.Item1);
-                yield return mean + (stddev*sample.Item2);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, mean, stddev);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="mean">The mean (μ) of the normal distribution.</param>
+        /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double mean, double stddev)
+        {
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, mean, stddev);
+        }
+
+        /// <summary>
+        /// Generates a sample from the normal distribution using the <i>Box-Muller</i> algorithm.
+        /// </summary>
+        /// <param name="mean">The mean (μ) of the normal distribution.</param>
+        /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double mean, double stddev)
+        {
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, mean, stddev);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the normal distribution using the <i>Box-Muller</i> algorithm.
+        /// </summary>
+        /// <param name="mean">The mean (μ) of the normal distribution.</param>
+        /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double mean, double stddev)
+        {
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, mean, stddev);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="mean">The mean (μ) of the normal distribution.</param>
+        /// <param name="stddev">The standard deviation (σ) of the normal distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double mean, double stddev)
+        {
+            if (stddev < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, mean, stddev);
         }
     }
 }

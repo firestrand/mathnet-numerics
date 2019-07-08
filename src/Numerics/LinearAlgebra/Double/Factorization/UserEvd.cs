@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -33,12 +32,7 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 {
-
-#if NOSYSNUMERICS
-    using Numerics;
-#else
-    using System.Numerics;
-#endif
+    using Complex = System.Numerics.Complex;
 
     /// <summary>
     /// Eigenvalues and eigenvectors of a real matrix.
@@ -62,9 +56,10 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// the eigenvalue decomposition when the constructor is called and cache it's decomposition.
         /// </summary>
         /// <param name="matrix">The matrix to factor.</param>
+        /// <param name="symmetricity">If it is known whether the matrix is symmetric or not the routine can skip checking it itself.</param>
         /// <exception cref="ArgumentNullException">If <paramref name="matrix"/> is <c>null</c>.</exception>
         /// <exception cref="ArgumentException">If EVD algorithm failed to converge with matrix <paramref name="matrix"/>.</exception>
-        public static UserEvd Create(Matrix<double> matrix)
+        public static UserEvd Create(Matrix<double> matrix, Symmetricity symmetricity)
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
@@ -73,19 +68,24 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 
             var order = matrix.RowCount;
 
-            // Initialize matricies for eigenvalues and eigenvectors
-            var eigenVectors = matrix.CreateMatrix(order, order);
-            var blockDiagonal = matrix.CreateMatrix(order, order);
+            // Initialize matrices for eigenvalues and eigenvectors
+            var eigenVectors = Matrix<double>.Build.SameAs(matrix, order, order, fullyMutable: true);
+            var blockDiagonal = Matrix<double>.Build.SameAs(matrix, order, order);
             var eigenValues = new LinearAlgebra.Complex.DenseVector(order);
 
-            var isSymmetric = true;
-
-            for (var i = 0; isSymmetric && i < order; i++)
+            bool isSymmetric;
+            switch (symmetricity)
             {
-                for (var j = 0; isSymmetric && j < order; j++)
-                {
-                    isSymmetric &= matrix.At(i, j) == matrix.At(j, i);
-                }
+                case Symmetricity.Symmetric:
+                case Symmetricity.Hermitian:
+                    isSymmetric = true;
+                    break;
+                case Symmetricity.Asymmetric:
+                    isSymmetric = false;
+                    break;
+                default:
+                    isSymmetric = matrix.IsSymmetric();
+                    break;
             }
 
             var d = new double[order];
@@ -141,9 +141,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         /// <param name="d">Arrays for internal storage of real parts of eigenvalues</param>
         /// <param name="e">Arrays for internal storage of imaginary parts of eigenvalues</param>
         /// <param name="order">Order of initial matrix</param>
-        /// <remarks>This is derived from the Algol procedures tred2 by 
-        /// Bowdler, Martin, Reinsch, and Wilkinson, Handbook for 
-        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding 
+        /// <remarks>This is derived from the Algol procedures tred2 by
+        /// Bowdler, Martin, Reinsch, and Wilkinson, Handbook for
+        /// Auto. Comp., Vol.ii-Linear Algebra, and the corresponding
         /// Fortran subroutine in EISPACK.</remarks>
         static void SymmetricTridiagonalize(Matrix<double> eigenVectors, double[] d, double[] e, int order)
         {
@@ -312,7 +312,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
 
             var f = 0.0;
             var tst1 = 0.0;
-            var eps = Precision.DoubleMachinePrecision;
+            var eps = Precision.DoublePrecision;
             for (var l = 0; l < order; l++)
             {
                 // Find small subdiagonal element
@@ -393,7 +393,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
                         e[l] = s*p;
                         d[l] = c*p;
 
-                        // Check for convergence. If too many iterations have been performed, 
+                        // Check for convergence. If too many iterations have been performed,
                         // throw exception that Convergence Failed
                         if (iter >= maxiter)
                         {
@@ -566,7 +566,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double.Factorization
         {
             // Initialize
             var n = order - 1;
-            var eps = Precision.DoubleMachinePrecision;
+            var eps = Precision.DoublePrecision;
             var exshift = 0.0;
             double p = 0, q = 0, r = 0, s = 0, z = 0, w, x, y;
 

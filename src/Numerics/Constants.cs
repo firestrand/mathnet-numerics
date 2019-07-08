@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -67,6 +66,9 @@ namespace MathNet.Numerics
         /// <summary>The number sqrt(2)</summary>
         public const double Sqrt2 = 1.4142135623730950488016887242096980785696718753769d;
 
+        /// <summary>The number sqrt(3)</summary>
+        public const double Sqrt3 = 1.7320508075688772935274463415058723669428052538104d;
+
         /// <summary>The number sqrt(1/2) = 1/sqrt(2) = sqrt(2)/2</summary>
         public const double Sqrt1Over2 = 0.70710678118654752440084436210484903928483593768845d;
 
@@ -93,6 +95,9 @@ namespace MathNet.Numerics
 
         /// <summary>The number sqrt(2pi)</summary>
         public const double Sqrt2Pi = 2.5066282746310005024157652848110452530069867406099d;
+
+        /// <summary>The number sqrt(pi/2)</summary>
+        public const double SqrtPiOver2 = 1.2533141373155002512078826424055226265034933703050d;
 
         /// <summary>The number sqrt(2*pi*e)</summary>
         public const double Sqrt2PiE = 4.1327313541224929384693918842998526494455219169913d;
@@ -285,7 +290,7 @@ namespace MathNet.Numerics
         /// <summary>Classical Electron Radius: [m] (2007 CODATA)</summary>
         public const double ClassicalElectronRadius = 2.8179402894e-15;
 
-        /// <summary>Tomson Cross Section: [m^2] (2002 CODATA)</summary>
+        /// <summary>Thomson Cross Section: [m^2] (2002 CODATA)</summary>
         public const double ThomsonCrossSection = 0.6652458558e-28;
 
         /// <summary>Electron Magnetic Moment: [J T^-1] (2007 CODATA)</summary>

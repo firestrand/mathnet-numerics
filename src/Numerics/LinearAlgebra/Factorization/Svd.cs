@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2015 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -35,13 +34,13 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
 {
     /// <summary>
     /// <para>A class which encapsulates the functionality of the singular value decomposition (SVD).</para>
-    /// <para>Suppose M is an m-by-n matrix whose entries are real numbers. 
+    /// <para>Suppose M is an m-by-n matrix whose entries are real numbers.
     /// Then there exists a factorization of the form M = UΣVT where:
     /// - U is an m-by-m unitary matrix;
     /// - Σ is m-by-n diagonal matrix with nonnegative real numbers on the diagonal;
-    /// - VT denotes transpose of V, an n-by-n unitary matrix; 
-    /// Such a factorization is called a singular-value decomposition of M. A common convention is to order the diagonal 
-    /// entries Σ(i,i) in descending order. In this case, the diagonal matrix Σ is uniquely determined 
+    /// - VT denotes transpose of V, an n-by-n unitary matrix;
+    /// Such a factorization is called a singular-value decomposition of M. A common convention is to order the diagonal
+    /// entries Σ(i,i) in descending order. In this case, the diagonal matrix Σ is uniquely determined
     /// by M (though the matrices U and V are not). The diagonal entries of Σ are known as the singular values of M.</para>
     /// </summary>
     /// <remarks>
@@ -71,7 +70,7 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         {
             var rows = U.RowCount;
             var columns = VT.ColumnCount;
-            var result = U.CreateMatrix(rows, columns);
+            var result = Matrix<T>.Build.SameAs(U, rows, columns);
             for (var i = 0; i < rows; i++)
             {
                 for (var j = 0; j < columns; j++)
@@ -120,7 +119,7 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
         /// Gets the two norm of the <see cref="Matrix{T}"/>.
         /// </summary>
         /// <returns>The 2-norm of the <see cref="Matrix{T}"/>.</returns>
-        public abstract T Norm2 { get; }
+        public abstract double L2Norm { get; }
 
         /// <summary>
         /// Gets the condition number <b>max(S) / min(S)</b>
@@ -145,9 +144,9 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
                 throw new InvalidOperationException(Resources.SingularVectorsNotComputed);
             }
 
-            var result = U.CreateMatrix(VT.ColumnCount, input.ColumnCount);
-            Solve(input, result);
-            return result;
+            var x = Matrix<T>.Build.SameAs(U, VT.ColumnCount, input.ColumnCount, fullyMutable: true);
+            Solve(input, x);
+            return x;
         }
 
         /// <summary>
@@ -169,7 +168,7 @@ namespace MathNet.Numerics.LinearAlgebra.Factorization
                 throw new InvalidOperationException(Resources.SingularVectorsNotComputed);
             }
 
-            var x = U.CreateVector(VT.ColumnCount);
+            var x = Vector<T>.Build.SameAs(U, VT.ColumnCount);
             Solve(input, x);
             return x;
         }

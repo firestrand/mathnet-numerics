@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -37,13 +36,13 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
 
     /// <summary>
     /// <para>A class which encapsulates the functionality of the singular value decomposition (SVD) for <see cref="Matrix{T}"/>.</para>
-    /// <para>Suppose M is an m-by-n matrix whose entries are real numbers. 
+    /// <para>Suppose M is an m-by-n matrix whose entries are real numbers.
     /// Then there exists a factorization of the form M = UΣVT where:
     /// - U is an m-by-m unitary matrix;
     /// - Σ is m-by-n diagonal matrix with nonnegative real numbers on the diagonal;
-    /// - VT denotes transpose of V, an n-by-n unitary matrix; 
-    /// Such a factorization is called a singular-value decomposition of M. A common convention is to order the diagonal 
-    /// entries Σ(i,i) in descending order. In this case, the diagonal matrix Σ is uniquely determined 
+    /// - VT denotes transpose of V, an n-by-n unitary matrix;
+    /// Such a factorization is called a singular-value decomposition of M. A common convention is to order the diagonal
+    /// entries Σ(i,i) in descending order. In this case, the diagonal matrix Σ is uniquely determined
     /// by M (though the matrices U and V are not). The diagonal entries of Σ are known as the singular values of M.</para>
     /// </summary>
     /// <remarks>
@@ -64,9 +63,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
             var nm = Math.Min(matrix.RowCount + 1, matrix.ColumnCount);
             var matrixCopy = matrix.Clone();
 
-            var s = matrixCopy.CreateVector(nm);
-            var u = matrixCopy.CreateMatrix(matrixCopy.RowCount, matrixCopy.RowCount);
-            var vt = matrixCopy.CreateMatrix(matrixCopy.ColumnCount, matrixCopy.ColumnCount);
+            var s = Vector<Complex32>.Build.SameAs(matrixCopy, nm);
+            var u = Matrix<Complex32>.Build.SameAs(matrixCopy, matrixCopy.RowCount, matrixCopy.RowCount, fullyMutable: true);
+            var vt = Matrix<Complex32>.Build.SameAs(matrixCopy, matrixCopy.ColumnCount, matrixCopy.ColumnCount, fullyMutable: true);
 
             const int maxiter = 1000;
             var e = new Complex32[matrixCopy.ColumnCount];
@@ -345,7 +344,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
 
             while (m > 0)
             {
-                // Quit if all the singular values have been found. If too many iterations have been performed, 
+                // Quit if all the singular values have been found. If too many iterations have been performed,
                 // throw exception that Convergence Failed
                 if (iter >= maxiter)
                 {
@@ -353,18 +352,18 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
                 }
 
                 // This section of the program inspects for negligible elements in the s and e arrays. On
-                // completion the variables kase and l are set as follows.
-                // Kase = 1     if VectorS[m] and e[l-1] are negligible and l < m
-                // Kase = 2     if VectorS[l] is negligible and l < m
-                // Kase = 3     if e[l-1] is negligible, l < m, and VectorS[l, ..., VectorS[m] are not negligible (qr step).
-                // Лase = 4     if e[m-1] is negligible (convergence).
+                // completion the variables case and l are set as follows.
+                // Case = 1     if VectorS[m] and e[l-1] are negligible and l < m
+                // Case = 2     if VectorS[l] is negligible and l < m
+                // Case = 3     if e[l-1] is negligible, l < m, and VectorS[l, ..., VectorS[m] are not negligible (qr step).
+                // Case = 4     if e[m-1] is negligible (convergence).
                 float ztest;
                 float test;
                 for (l = m - 2; l >= 0; l--)
                 {
                     test = s[l].Magnitude + s[l + 1].Magnitude;
                     ztest = test + e[l].Magnitude;
-                    if (ztest.AlmostEqualInDecimalPlaces(test, 7))
+                    if (ztest.AlmostEqualRelative(test, 7))
                     {
                         e[l] = Complex32.Zero;
                         break;
@@ -393,7 +392,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
                         }
 
                         ztest = test + s[ls].Magnitude;
-                        if (ztest.AlmostEqualInDecimalPlaces(test, 7))
+                        if (ztest.AlmostEqualRelative(test, 7))
                         {
                             s[ls] = Complex32.Zero;
                             break;
@@ -417,7 +416,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
 
                 l = l + 1;
 
-                // Perform the task indicated by kase.
+                // Perform the task indicated by case.
                 int k;
                 float f;
                 float sn;
@@ -587,7 +586,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
             if (matrixCopy.RowCount < matrixCopy.ColumnCount)
             {
                 nm--;
-                var tmp = matrixCopy.CreateVector(nm);
+                var tmp = Vector<Complex32>.Build.SameAs(matrixCopy, nm);
                 for (i = 0; i < nm; i++)
                 {
                     tmp[i] = s[i];
@@ -663,7 +662,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
         }
 
         /// <summary>
-        /// Given the Cartesian coordinates (da, db) of a point p, these fucntion return the parameters da, db, c, and s 
+        /// Given the Cartesian coordinates (da, db) of a point p, these function return the parameters da, db, c, and s
         /// associated with the Givens rotation that zeros the y-coordinate of the point.
         /// </summary>
         /// <param name="da">Provides the x-coordinate of the point p. On exit contains the parameter r associated with the Givens rotation</param>
@@ -776,7 +775,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32.Factorization
         }
 
         /// <summary>
-        /// Performs rotation of points in the plane. Given two vectors x <paramref name="columnA"/> and y <paramref name="columnB"/>, 
+        /// Performs rotation of points in the plane. Given two vectors x <paramref name="columnA"/> and y <paramref name="columnB"/>,
         /// each vector element of these vectors is replaced as follows: x(i) = c*x(i) + s*y(i); y(i) = c*y(i) - s*x(i)
         /// </summary>
         /// <param name="a">Source matrix</param>

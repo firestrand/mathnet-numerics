@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -30,11 +29,10 @@
 
 using System;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.Random;
 
 namespace MathNet.Numerics.Statistics.Mcmc
 {
-    using Random = System.Random;
-
     /// <summary>
     /// A hybrid Monte Carlo sampler for univariate distributions.
     /// </summary>
@@ -77,14 +75,14 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviation of the normal distribution that is used to sample
         /// the momentum.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
         public UnivariateHybridMC(double x0, DensityLn<double> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval = 0, double pSdv = 1)
-            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, new Random())
+            : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, SystemRandomSource.Default)
         {
         }
 
@@ -97,14 +95,14 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviation of the normal distribution that is used to sample
         /// the momentum.</param>
         /// <param name="randomSource">Random number generator used to sample the momentum.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
-        public UnivariateHybridMC(double x0, DensityLn<double> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double pSdv, Random randomSource)
+        public UnivariateHybridMC(double x0, DensityLn<double> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double pSdv, System.Random randomSource)
             : this(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, pSdv, randomSource, Grad)
         {
         }
@@ -118,15 +116,15 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// </summary>
         /// <param name="x0">The initial sample.</param>
         /// <param name="pdfLnP">The log density of the distribution we want to sample from.</param>
-        /// <param name="frogLeapSteps">Number frogleap simulation steps.</param>
-        /// <param name="stepSize">Size of the frogleap simulation steps.</param>
+        /// <param name="frogLeapSteps">Number frog leap simulation steps.</param>
+        /// <param name="stepSize">Size of the frog leap simulation steps.</param>
         /// <param name="burnInterval">The number of iterations in between returning samples.</param>
         /// <param name="pSdv">The standard deviation of the normal distribution that is used to sample
         /// the momentum.</param>
         /// <param name="diff">The method used for numerical differentiation.</param>
         /// <param name="randomSource">Random number generator used for sampling the momentum.</param>
         /// <exception cref="ArgumentOutOfRangeException">When the number of burnInterval iteration is negative.</exception>
-        public UnivariateHybridMC(double x0, DensityLn<double> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double pSdv, Random randomSource, DiffMethod diff)
+        public UnivariateHybridMC(double x0, DensityLn<double> pdfLnP, int frogLeapSteps, double stepSize, int burnInterval, double pSdv, System.Random randomSource, DiffMethod diff)
             : base(x0, pdfLnP, frogLeapSteps, stepSize, burnInterval, randomSource, diff)
         {
             MomentumStdDev = pSdv;
@@ -186,7 +184,7 @@ namespace MathNet.Numerics.Statistics.Mcmc
         /// <param name="function">Function for which the derivative is to be evaluated.</param>
         /// <param name="x">The location where the derivative is to be evaluated.</param>
         /// <returns>The derivative of the function at the point x.</returns>
-        static private double Grad(DensityLn<double> function, double x)
+        static double Grad(DensityLn<double> function, double x)
         {
             double h = Math.Max(10e-4, (10e-7) * x);
             double increment = x + h;

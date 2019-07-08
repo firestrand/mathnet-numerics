@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2011 Math.NET
 //
@@ -33,18 +32,17 @@
 //    ALGLIB 2.0.1, Sergey Bochkanov
 // </contribution>
 
+using System;
+
 // ReSharper disable CheckNamespace
 namespace MathNet.Numerics
 // ReSharper restore CheckNamespace
 {
-    using System;
-
     /// <summary>
     /// This partial implementation of the SpecialFunctions class contains all methods related to the harmonic function.
     /// </summary>
     public static partial class SpecialFunctions
     {
-        
         /// <summary>
         /// Computes the <paramref name="t"/>'th Harmonic number.
         /// </summary>
@@ -68,6 +66,7 @@ namespace MathNet.Numerics
             {
                 sum += Math.Pow(i + 1, -m);
             }
+
             return sum;
         }
     }

@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -38,7 +37,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
 {
     /// <summary>
     /// A composite matrix solver. The actual solver is made by a sequence of
-    /// matrix solvers. 
+    /// matrix solvers.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -76,7 +75,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (result.Count != input.Count)
@@ -115,9 +114,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
                 }
                 catch (Exception)
                 {
-                    // The solver broke down. 
+                    // The solver broke down.
                     // Log a message about this
-                    // Switch to the next preconditioner. 
+                    // Switch to the next preconditioner.
                     // Reset the solution vector to the previous solution
                     input.CopyTo(internalInput);
                     continue;

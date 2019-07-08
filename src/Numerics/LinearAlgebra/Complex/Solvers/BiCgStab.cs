@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -34,12 +33,7 @@ using MathNet.Numerics.Properties;
 
 namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
 {
-
-#if NOSYSNUMERICS
-    using Complex = Numerics.Complex;
-#else
     using Complex = System.Numerics.Complex;
-#endif
 
     /// <summary>
     /// A Bi-Conjugate Gradient stabilized iterative matrix solver.
@@ -104,7 +98,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
         {
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             if (result.Count != input.Count)
@@ -164,10 +158,10 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
 
                 // if (rho_(i-1) == 0) // METHOD FAILS
                 // If rho is only 1 ULP from zero then we fail.
-                if (currentRho.Real.AlmostEqual(0, 1) && currentRho.Imaginary.AlmostEqual(0, 1))
+                if (currentRho.Real.AlmostEqualNumbersBetween(0, 1) && currentRho.Imaginary.AlmostEqualNumbersBetween(0, 1))
                 {
                     // Rho-type breakdown
-                    throw new Exception("Iterative solver experience a numerical break down");
+                    throw new NumericalBreakdownException();
                 }
 
                 if (iterationNumber != 0)
@@ -204,7 +198,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
                 residuals.Add(temp, vecS);
 
                 // Check if we're converged. If so then stop. Otherwise continue;
-                // Calculate the temporary result. 
+                // Calculate the temporary result.
                 // Be careful not to change any of the temp vectors, except for
                 // temp. Others will be used in the calculation later on.
                 // x_i = x_(i-1) + alpha_i * p^_i + s^_i
@@ -258,10 +252,10 @@ namespace MathNet.Numerics.LinearAlgebra.Complex.Solvers
 
                 // for continuation it is necessary that omega_i != 0.0
                 // If omega is only 1 ULP from zero then we fail.
-                if (omega.Real.AlmostEqual(0, 1) && omega.Imaginary.AlmostEqual(0, 1))
+                if (omega.Real.AlmostEqualNumbersBetween(0, 1) && omega.Imaginary.AlmostEqualNumbersBetween(0, 1))
                 {
                     // Omega-type breakdown
-                    throw new Exception("Iterative solver experience a numerical break down");
+                    throw new NumericalBreakdownException();
                 }
 
                 if (iterator.DetermineStatus(iterationNumber, result, input, residuals) != IterationStatus.Continue)

@@ -2,10 +2,9 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
-// 
-// Copyright (c) 2009-2013 Math.NET
-// 
+//
+// Copyright (c) 2009-2014 Math.NET
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -14,10 +13,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -31,10 +30,7 @@
 using System;
 using MathNet.Numerics.Properties;
 using MathNet.Numerics.RootFinding;
-
-#if !NOSYSNUMERICS
-    using Complex = System.Numerics.Complex;
-#endif
+using Complex = System.Numerics.Complex;
 
 namespace MathNet.Numerics
 {
@@ -49,6 +45,11 @@ namespace MathNet.Numerics
         public static double OfFunction(Func<double, double> f, double lowerBound, double upperBound, double accuracy = 1e-8, int maxIterations = 100)
         {
             double root;
+
+            if (!ZeroCrossingBracketing.ExpandReduce(f, ref lowerBound, ref upperBound, 1.6, maxIterations, maxIterations*10))
+            {
+                throw new NonConvergenceException(Resources.RootFindingFailed);
+            }
 
             if (Brent.TryFindRoot(f, lowerBound, upperBound, accuracy, maxIterations, out root))
             {
@@ -79,12 +80,7 @@ namespace MathNet.Numerics
                 return root;
             }
 
-            if (Bisection.TryFindRoot(f, lowerBound, upperBound, accuracy, maxIterations, out root))
-            {
-                return root;
-            }
-
-            throw new NonConvergenceException(Resources.RootFindingFailed);
+            return OfFunction(f, lowerBound, upperBound, accuracy, maxIterations);
         }
 
         /// <summary>
@@ -104,6 +100,93 @@ namespace MathNet.Numerics
                 : -0.5*(b - new Complex(b*b - 4*a*c, 0d).SquareRoot());
 
             return new Tuple<Complex, Complex>(q/a, c/q);
+        }
+
+        /// <summary>
+        /// Find all three complex roots of the cubic equation d + c*x + b*x^2 + a*x^3 = 0.
+        /// Note the special coefficient order ascending by exponent (consistent with polynomials).
+        /// </summary>
+        public static Tuple<Complex, Complex, Complex> Cubic(double d, double c, double b, double a)
+        {
+            return RootFinding.Cubic.Roots(d, c, b, a);
+        }
+
+        /// <summary>
+        /// Find all roots of a polynomial by calculating the characteristic polynomial of the companion matrix
+        /// </summary>
+        /// <param name="coefficients">The coefficients of the polynomial in ascending order, e.g. new double[] {5, 0, 2} = "5 + 0 x^1 + 2 x^2"</param>
+        /// <returns>The roots of the polynomial</returns>
+        public static Complex[] Polynomial(double[] coefficients)
+        {
+            return new Polynomial(coefficients).Roots();
+        }
+
+        /// <summary>
+        /// Find all roots of a polynomial by calculating the characteristic polynomial of the companion matrix
+        /// </summary>
+        /// <param name="polynomial">The polynomial.</param>
+        /// <returns>The roots of the polynomial</returns>
+        public static Complex[] Polynomial(Polynomial polynomial)
+        {
+            return polynomial.Roots();
+        }
+
+        /// <summary>
+        /// Find all roots of the Chebychev polynomial of the first kind.
+        /// </summary>
+        /// <param name="degree">The polynomial order and therefore the number of roots.</param>
+        /// <param name="intervalBegin">The real domain interval begin where to start sampling.</param>
+        /// <param name="intervalEnd">The real domain interval end where to stop sampling.</param>
+        /// <returns>Samples in [a,b] at (b+a)/2+(b-1)/2*cos(pi*(2i-1)/(2n))</returns>
+        public static double[] ChebychevPolynomialFirstKind(int degree, double intervalBegin = -1d, double intervalEnd = 1d)
+        {
+            if (degree < 1)
+            {
+                return new double[0];
+            }
+
+            // transform to map to [-1..1] interval
+            double location = 0.5*(intervalBegin + intervalEnd);
+            double scale = 0.5*(intervalEnd - intervalBegin);
+
+            // evaluate first kind chebychev nodes
+            double angleFactor = Constants.Pi/(2*degree);
+
+            var samples = new double[degree];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                samples[i] = location + scale*Math.Cos(((2*i) + 1)*angleFactor);
+            }
+            return samples;
+        }
+
+        /// <summary>
+        /// Find all roots of the Chebychev polynomial of the second kind.
+        /// </summary>
+        /// <param name="degree">The polynomial order and therefore the number of roots.</param>
+        /// <param name="intervalBegin">The real domain interval begin where to start sampling.</param>
+        /// <param name="intervalEnd">The real domain interval end where to stop sampling.</param>
+        /// <returns>Samples in [a,b] at (b+a)/2+(b-1)/2*cos(pi*i/(n-1))</returns>
+        public static double[] ChebychevPolynomialSecondKind(int degree, double intervalBegin = -1d, double intervalEnd = 1d)
+        {
+            if (degree < 1)
+            {
+                return new double[0];
+            }
+
+            // transform to map to [-1..1] interval
+            double location = 0.5*(intervalBegin + intervalEnd);
+            double scale = 0.5*(intervalEnd - intervalBegin);
+
+            // evaluate second kind chebychev nodes
+            double angleFactor = Constants.Pi/(degree + 1);
+
+            var samples = new double[degree];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                samples[i] = location + scale*Math.Cos((i + 1)*angleFactor);
+            }
+            return samples;
         }
     }
 }

@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -34,7 +33,7 @@ namespace MathNet.Numerics.LinearAlgebra.Solvers
 {
     /// <summary>
     /// Defines the interface for objects that can create an iterative solver with
-    /// specific settings. This interface is used to pass iterative solver creation 
+    /// specific settings. This interface is used to pass iterative solver creation
     /// setup information around.
     /// </summary>
     public interface IIterativeSolverSetup<T> where T : struct, IEquatable<T>, IFormattable
@@ -60,7 +59,7 @@ namespace MathNet.Numerics.LinearAlgebra.Solvers
         IPreconditioner<T> CreatePreconditioner();
 
         /// <summary>
-        /// Gets the relative speed of the solver. 
+        /// Gets the relative speed of the solver.
         /// </summary>
         /// <value>Returns a value between 0 and 1, inclusive.</value>
         double SolutionSpeed { get; }

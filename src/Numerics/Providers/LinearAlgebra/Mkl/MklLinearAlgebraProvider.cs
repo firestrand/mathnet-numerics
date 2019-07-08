@@ -2,9 +2,8 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2018 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -28,338 +27,106 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
-#if NATIVEMKL
+#if NATIVE
 
-using MathNet.Numerics.Properties;
 using System;
-using System.Numerics;
-using System.Security;
+using MathNet.Numerics.Providers.Common.Mkl;
 
 namespace MathNet.Numerics.Providers.LinearAlgebra.Mkl
 {
     /// <summary>
-    /// Intel's Math Kernel Library (MKL) linear algebra provider.
+    /// Error codes return from the MKL provider.
     /// </summary>
-    public partial class MklLinearAlgebraProvider : ManagedLinearAlgebraProvider
+    internal enum MklError : int
     {
         /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
+        /// Unable to allocate memory.
         /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override float MatrixNorm(Norm norm, int rows, int columns, float[] matrix)
+        MemoryAllocation = -999999
+    }
+
+    /// <summary>
+    /// Intel's Math Kernel Library (MKL) linear algebra provider.
+    /// </summary>
+    internal partial class MklLinearAlgebraProvider : Managed.ManagedLinearAlgebraProvider, IDisposable
+    {
+        const int MinimumCompatibleRevision = 4;
+
+        readonly string _hintPath;
+        readonly MklConsistency _consistency;
+        readonly MklPrecision _precision;
+        readonly MklAccuracy _accuracy;
+
+        int _linearAlgebraMajor;
+        int _linearAlgebraMinor;
+        int _vectorFunctionsMajor;
+        int _vectorFunctionsMinor;
+
+        /// <param name="hintPath">Hint path where to look for the native binaries</param>
+        /// <param name="consistency">
+        /// Sets the desired bit consistency on repeated identical computations on varying CPU architectures,
+        /// as a trade-off with performance.
+        /// </param>
+        /// <param name="precision">VML optimal precision and rounding.</param>
+        /// <param name="accuracy">VML accuracy mode.</param>
+        internal MklLinearAlgebraProvider(string hintPath, MklConsistency consistency, MklPrecision precision, MklAccuracy accuracy)
         {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            var work = new float[rows];
-            return MatrixNorm(norm, rows, columns, matrix, work);
+            _hintPath = hintPath;
+            _consistency = consistency;
+            _precision = precision;
+            _accuracy = accuracy;
         }
 
         /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
+        /// Try to find out whether the provider is available, at least in principle.
+        /// Verification may still fail if available, but it will certainly fail if unavailable.
         /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <param name="work">The work array. Only used when <see cref="Norm.InfinityNorm"/>
-        /// and needs to be have a length of at least M (number of rows of <paramref name="matrix"/>.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override float MatrixNorm(Norm norm, int rows, int columns, float[] matrix, float[] work)
+        public override bool IsAvailable()
         {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            if (work.Length < rows)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows), "work");
-            }
-
-            return SafeNativeMethods.s_matrix_norm((byte) norm, rows, columns, matrix, work);
+            return MklProvider.IsAvailable(hintPath: _hintPath);
         }
 
         /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
+        /// Initialize and verify that the provided is indeed available.
+        /// If calling this method fails, consider to fall back to alternatives like the managed provider.
         /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override double MatrixNorm(Norm norm, int rows, int columns, double[] matrix)
+        public override void InitializeVerify()
         {
-            if (matrix == null)
+            int revision = MklProvider.Load(_hintPath, _consistency, _precision, _accuracy);
+            if (revision < MinimumCompatibleRevision)
             {
-                throw new ArgumentNullException("matrix");
+                throw new NotSupportedException($"MKL Native Provider revision r{revision} is too old. Consider upgrading to a newer version. Revision r{MinimumCompatibleRevision} and newer are supported.");
             }
 
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
+            _linearAlgebraMajor = SafeNativeMethods.query_capability((int)ProviderCapability.LinearAlgebraMajor);
+            _linearAlgebraMinor = SafeNativeMethods.query_capability((int)ProviderCapability.LinearAlgebraMinor);
+            _vectorFunctionsMajor = SafeNativeMethods.query_capability((int)ProviderCapability.VectorFunctionsMajor);
+            _vectorFunctionsMinor = SafeNativeMethods.query_capability((int)ProviderCapability.VectorFunctionsMinor);
 
-            if (columns <= 0)
+            // we only support exactly one major version, since major version changes imply a breaking change.
+            if (_linearAlgebraMajor != 2)
             {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
+                throw new NotSupportedException(string.Format("MKL Native Provider not compatible. Expecting linear algebra v2 but provider implements v{0}.", _linearAlgebraMajor));
             }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            var work = new double[rows];
-            return MatrixNorm(norm, rows, columns, matrix, work);
         }
 
         /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
+        /// Frees memory buffers, caches and handles allocated in or to the provider.
+        /// Does not unload the provider itself, it is still usable afterwards.
         /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <param name="work">The work array. Only used when <see cref="Norm.InfinityNorm"/>
-        /// and needs to be have a length of at least M (number of rows of <paramref name="matrix"/>.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override double MatrixNorm(Norm norm, int rows, int columns, double[] matrix, double[] work)
+        public override void FreeResources()
         {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            if (work.Length < rows)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows), "work");
-            }
-
-            return SafeNativeMethods.d_matrix_norm((byte) norm, rows, columns, matrix, work);
+            MklProvider.FreeResources();
         }
 
-        /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
-        /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override Complex32 MatrixNorm(Norm norm, int rows, int columns, Complex32[] matrix)
+        public override string ToString()
         {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            var work = new float[rows];
-            return MatrixNorm(norm, rows, columns, matrix, work);
+            return MklProvider.Describe();
         }
 
-        /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
-        /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <param name="work">The work array. Only used when <see cref="Norm.InfinityNorm"/>
-        /// and needs to be have a length of at least M (number of rows of <paramref name="matrix"/>.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override Complex32 MatrixNorm(Norm norm, int rows, int columns, Complex32[] matrix, float[] work)
+        public void Dispose()
         {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            if (work.Length < rows)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows), "work");
-            }
-
-            return SafeNativeMethods.c_matrix_norm((byte) norm, rows, columns, matrix, work);
-        }
-
-        /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
-        /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override Complex MatrixNorm(Norm norm, int rows, int columns, Complex[] matrix)
-        {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            var work = new double[rows];
-            return MatrixNorm(norm, rows, columns, matrix, work);
-        }
-
-        /// <summary>
-        /// Computes the requested <see cref="Norm"/> of the matrix.
-        /// </summary>
-        /// <param name="norm">The type of norm to compute.</param>
-        /// <param name="rows">The number of rows in the matrix.</param>
-        /// <param name="columns">The number of columns in the matrix.</param>
-        /// <param name="matrix">The matrix to compute the norm from.</param>
-        /// <param name="work">The work array. Only used when <see cref="Norm.InfinityNorm"/>
-        /// and needs to be have a length of at least M (number of rows of <paramref name="matrix"/>.</param>
-        /// <returns>
-        /// The requested <see cref="Norm"/> of the matrix.
-        /// </returns>
-        [SecuritySafeCritical]
-        public override Complex MatrixNorm(Norm norm, int rows, int columns, Complex[] matrix, double[] work)
-        {
-            if (matrix == null)
-            {
-                throw new ArgumentNullException("matrix");
-            }
-
-            if (rows <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "rows");
-            }
-
-            if (columns <= 0)
-            {
-                throw new ArgumentException(Resources.ArgumentMustBePositive, "columns");
-            }
-
-            if (matrix.Length < rows*columns)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows*columns), "matrix");
-            }
-
-            if (work.Length < rows)
-            {
-                throw new ArgumentException(string.Format(Resources.ArrayTooSmall, rows), "work");
-            }
-
-            return SafeNativeMethods.z_matrix_norm((byte) norm, rows, columns, matrix, work);
+            FreeResources();
         }
     }
 }

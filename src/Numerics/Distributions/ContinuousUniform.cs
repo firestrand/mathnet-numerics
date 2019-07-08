@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -31,25 +30,22 @@
 using System;
 using System.Collections.Generic;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Random;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
     /// <summary>
     /// Continuous Univariate Uniform distribution.
-    /// The continuous uniform distribution is a distribution over real numbers. For details about this distribution, see 
+    /// The continuous uniform distribution is a distribution over real numbers. For details about this distribution, see
     /// <a href="http://en.wikipedia.org/wiki/Uniform_distribution_%28continuous%29">Wikipedia - Continuous uniform distribution</a>.
     /// </summary>
-    /// <remarks><para>The distribution will use the <see cref="System.Random"/> by default. 
-    /// Users can get/set the random number generator by using the <see cref="RandomSource"/> property.</para>
-    /// <para>The statistics classes will check all the incoming parameters whether they are in the allowed
-    /// range. This might involve heavy computation. Optionally, by setting Control.CheckDistributionParameters
-    /// to <c>false</c>, all parameter checks can be turned off.</para></remarks>
     public class ContinuousUniform : IContinuousDistribution
     {
         System.Random _random;
 
-        double _lower;
-        double _upper;
+        readonly double _lower;
+        readonly double _upper;
 
         /// <summary>
         /// Initializes a new instance of the ContinuousUniform class with lower bound 0 and upper bound 1.
@@ -66,8 +62,14 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If the upper bound is smaller than the lower bound.</exception>
         public ContinuousUniform(double lower, double upper)
         {
-            _random = new System.Random();
-            SetParameters(lower, upper);
+            if (!IsValidParameterSet(lower, upper))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = SystemRandomSource.Default;
+            _lower = lower;
+            _upper = upper;
         }
 
         /// <summary>
@@ -79,8 +81,14 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If the upper bound is smaller than the lower bound.</exception>
         public ContinuousUniform(double lower, double upper, System.Random randomSource)
         {
-            _random = randomSource ?? new System.Random();
-            SetParameters(lower, upper);
+            if (!IsValidParameterSet(lower, upper))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            _random = randomSource ?? SystemRandomSource.Default;
+            _lower = lower;
+            _upper = upper;
         }
 
         /// <summary>
@@ -93,38 +101,29 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="lower">Lower bound. Range: lower ≤ upper.</param>
         /// <param name="upper">Upper bound. Range: lower ≤ upper.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double lower, double upper)
+        public static bool IsValidParameterSet(double lower, double upper)
         {
-            if (upper < lower || Double.IsNaN(upper) || Double.IsNaN(lower))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _lower = lower;
-            _upper = upper;
+            return lower <= upper;
         }
 
         /// <summary>
-        /// Gets or sets the lower bound of the distribution.
+        /// Gets the lower bound of the distribution.
         /// </summary>
         public double LowerBound
         {
             get { return _lower; }
-            set { SetParameters(value, _upper); }
         }
 
         /// <summary>
-        /// Gets or sets the upper bound of the distribution.
+        /// Gets the upper bound of the distribution.
         /// </summary>
         public double UpperBound
         {
             get { return _upper; }
-            set { SetParameters(_lower, value); }
         }
 
         /// <summary>
@@ -133,7 +132,7 @@ namespace MathNet.Numerics.Distributions
         public System.Random RandomSource
         {
             get { return _random; }
-            set { _random = value ?? new System.Random(); }
+            set { _random = value ?? SystemRandomSource.Default; }
         }
 
         /// <summary>
@@ -230,7 +229,7 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="PDFLn"/>
         public double DensityLn(double x)
         {
-            return x < _lower || x > _upper ? Double.NegativeInfinity : -Math.Log(_upper - _lower);
+            return x < _lower || x > _upper ? double.NegativeInfinity : -Math.Log(_upper - _lower);
         }
 
         /// <summary>
@@ -262,7 +261,15 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public double Sample()
         {
-            return _lower + _random.NextDouble()*(_upper - _lower);
+            return SampleUnchecked(_random, _lower, _upper);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _lower, _upper);
         }
 
         /// <summary>
@@ -271,10 +278,34 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
+            return SamplesUnchecked(_random, _lower, _upper);
+        }
+
+        static double SampleUnchecked(System.Random rnd, double lower, double upper)
+        {
+            return lower + rnd.NextDouble()*(upper - lower);
+        }
+
+        static IEnumerable<double> SamplesUnchecked(System.Random rnd, double lower, double upper)
+        {
+            double difference = upper - lower;
             while (true)
             {
-                yield return _lower + _random.NextDouble()*(_upper - _lower);
+                yield return lower + rnd.NextDouble()*difference;
             }
+        }
+
+        internal static void SamplesUnchecked(System.Random rnd, double[] values, double lower, double upper)
+        {
+            rnd.NextDoubles(values);
+            var difference = upper - lower;
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
+                {
+                    values[i] = lower + values[i]*difference;
+                }
+            });
         }
 
         /// <summary>
@@ -287,7 +318,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="Density"/>
         public static double PDF(double lower, double upper, double x)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return x < lower || x > upper ? 0.0 : 1.0/(upper - lower);
         }
@@ -302,9 +336,12 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double lower, double upper, double x)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            return x < lower || x > upper ? Double.NegativeInfinity : -Math.Log(upper - lower);
+            return x < lower || x > upper ? double.NegativeInfinity : -Math.Log(upper - lower);
         }
 
         /// <summary>
@@ -317,7 +354,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="CumulativeDistribution"/>
         public static double CDF(double lower, double upper, double x)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return x <= lower ? 0.0 : x >= upper ? 1.0 : (x - lower)/(upper - lower);
         }
@@ -333,7 +373,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="InverseCumulativeDistribution"/>
         public static double InvCDF(double lower, double upper, double p)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return p <= 0.0 ? lower : p >= 1.0 ? upper : lower*(1.0 - p) + upper*p;
         }
@@ -347,9 +390,12 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a uniformly distributed sample.</returns>
         public static double Sample(System.Random rnd, double lower, double upper)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            return lower + rnd.NextDouble()*(upper - lower);
+            return SampleUnchecked(rnd, lower, upper);
         }
 
         /// <summary>
@@ -361,12 +407,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of uniformly distributed samples.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double lower, double upper)
         {
-            if (upper < lower) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
-
-            while (true)
+            if (upper < lower)
             {
-                yield return lower + rnd.NextDouble()*(upper - lower);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, lower, upper);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="lower">Lower bound. Range: lower ≤ upper.</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ upper.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double lower, double upper)
+        {
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, lower, upper);
+        }
+
+        /// <summary>
+        /// Generates a sample from the <c>ContinuousUniform</c> distribution.
+        /// </summary>
+        /// <param name="lower">Lower bound. Range: lower ≤ upper.</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ upper.</param>
+        /// <returns>a uniformly distributed sample.</returns>
+        public static double Sample(double lower, double upper)
+        {
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, lower, upper);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the <c>ContinuousUniform</c> distribution.
+        /// </summary>
+        /// <param name="lower">Lower bound. Range: lower ≤ upper.</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ upper.</param>
+        /// <returns>a sequence of uniformly distributed samples.</returns>
+        public static IEnumerable<double> Samples(double lower, double upper)
+        {
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, lower, upper);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="lower">Lower bound. Range: lower ≤ upper.</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ upper.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double lower, double upper)
+        {
+            if (upper < lower)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, lower, upper);
         }
     }
 }

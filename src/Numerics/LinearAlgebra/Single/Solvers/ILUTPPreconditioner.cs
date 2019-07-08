@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2010 Math.NET
 //
@@ -105,11 +104,11 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// Initializes a new instance of the <see cref="ILUTPPreconditioner"/> class with the specified settings.
         /// </summary>
         /// <param name="fillLevel">
-        /// The amount of fill that is allowed in the matrix. The value is a fraction of 
+        /// The amount of fill that is allowed in the matrix. The value is a fraction of
         /// the number of non-zero entries in the original matrix. Values should be positive.
         /// </param>
         /// <param name="dropTolerance">
-        /// The absolute drop tolerance which indicates below what absolute value an entry 
+        /// The absolute drop tolerance which indicates below what absolute value an entry
         /// will be dropped from the matrix. A drop tolerance of 0.0 means that no values
         /// will be dropped. Values should always be positive.
         /// </param>
@@ -121,17 +120,17 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         {
             if (fillLevel < 0)
             {
-                throw new ArgumentOutOfRangeException("fillLevel");
+                throw new ArgumentOutOfRangeException(nameof(fillLevel));
             }
 
             if (dropTolerance < 0)
             {
-                throw new ArgumentOutOfRangeException("dropTolerance");
+                throw new ArgumentOutOfRangeException(nameof(dropTolerance));
             }
 
             if (pivotTolerance < 0)
             {
-                throw new ArgumentOutOfRangeException("pivotTolerance");
+                throw new ArgumentOutOfRangeException(nameof(pivotTolerance));
             }
 
             _fillLevel = fillLevel;
@@ -149,7 +148,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// Values should always be positive and can be higher than 1.0. A value lower
         /// than 1.0 means that the eventual preconditioner matrix will have fewer
         /// non-zero entries as the original matrix. A value higher than 1.0 means that
-        /// the eventual preconditioner can have more non-zero values than the original 
+        /// the eventual preconditioner can have more non-zero values than the original
         /// matrix.
         /// </para>
         /// <para>
@@ -166,7 +165,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _fillLevel = value;
@@ -180,7 +179,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// <remarks>
         /// <para>
         /// The values should always be positive and can be larger than 1.0. A low value will
-        /// keep more small numbers in the preconditioner matrix. A high value will remove 
+        /// keep more small numbers in the preconditioner matrix. A high value will remove
         /// more small numbers from the preconditioner matrix.
         /// </para>
         /// <para>
@@ -197,7 +196,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _dropTolerance = value;
@@ -211,7 +210,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// <remarks>
         /// <para>
         /// The pivot tolerance is used to calculate if pivoting is necessary. Pivoting
-        /// will take place if any of the values in a row is bigger than the 
+        /// will take place if any of the values in a row is bigger than the
         /// diagonal value of that row divided by the pivot tolerance, i.e. pivoting
         /// will take place if <b>row(i,j) > row(i,i) / PivotTolerance</b> for
         /// any <b>j</b> that is not equal to <b>i</b>.
@@ -230,7 +229,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             {
                 if (value < 0)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _pivotTolerance = value;
@@ -284,8 +283,8 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// Initializes the preconditioner and loads the internal data structures.
         /// </summary>
         /// <param name="matrix">
-        /// The <see cref="Matrix"/> upon which this preconditioner is based. Note that the 
-        /// method takes a general matrix type. However internally the data is stored 
+        /// The <see cref="Matrix"/> upon which this preconditioner is based. Note that the
+        /// method takes a general matrix type. However internally the data is stored
         /// as a sparse matrix. Therefore it is not recommended to pass a dense matrix.
         /// </param>
         /// <exception cref="ArgumentNullException"> If <paramref name="matrix"/> is <see langword="null" />.</exception>
@@ -294,15 +293,15 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         {
             if (matrix == null)
             {
-                throw new ArgumentNullException("matrix");
+                throw new ArgumentNullException(nameof(matrix));
             }
 
             if (matrix.RowCount != matrix.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
-            var sparseMatrix = (matrix is SparseMatrix) ? matrix as SparseMatrix : SparseMatrix.OfMatrix(matrix);
+            SparseMatrix sparseMatrix = matrix as SparseMatrix ?? SparseMatrix.OfMatrix(matrix);
 
             // The creation of the preconditioner follows the following algorithm.
             // spaceLeft = lfilNnz * nnz(A)
@@ -340,7 +339,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             //    lfil = spaceRow - nnz(L(i,:))  // space for this row of U
             //    u(i,j) = w(j) for j = i, .. , n // only the largest lfil - 1 elements
             //    w = 0
-            //    
+            //
             //    if max(U(i,i + 1: n)) > U(i,i) / pivTol then // pivot if necessary
             //    {
             //        pivot by swapping the max and the diagonal entries
@@ -582,11 +581,11 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         }
 
         /// <summary>
-        /// Sort vector descending, not changing vector but placing sorted indicies to <paramref name="sortedIndices"/>
+        /// Sort vector descending, not changing vector but placing sorted indices to <paramref name="sortedIndices"/>
         /// </summary>
         /// <param name="lowerBound">Start sort form</param>
         /// <param name="upperBound">Sort till upper bound</param>
-        /// <param name="sortedIndices">Array with sorted vector indicies</param>
+        /// <param name="sortedIndices">Array with sorted vector indices</param>
         /// <param name="values">Source <see cref="Vector"/></param>
         static void FindLargestItems(int lowerBound, int upperBound, int[] sortedIndices, Vector<float> values)
         {
@@ -622,7 +621,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
 
             if ((lhs.Count != rhs.Count) || (lhs.Count != _upper.RowCount))
             {
-                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "rhs");
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, nameof(rhs));
             }
 
             // Solve equation here
@@ -736,11 +735,11 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         }
 
         /// <summary>
-        /// Build heap for double indicies
+        /// Build heap for double indices
         /// </summary>
         /// <param name="start">Root position</param>
         /// <param name="count">Length of <paramref name="values"/></param>
-        /// <param name="sortedIndices">Indicies of <paramref name="values"/></param>
+        /// <param name="sortedIndices">Indices of <paramref name="values"/></param>
         /// <param name="values">Target <see cref="Vector"/></param>
         private static void BuildDoubleIndexHeap(int start, int count, int[] sortedIndices, Vector<float> values)
         {
@@ -752,9 +751,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         }
 
         /// <summary>
-        /// Sift double indicies
+        /// Sift double indices
         /// </summary>
-        /// <param name="sortedIndices">Indicies of <paramref name="values"/></param>
+        /// <param name="sortedIndices">Indices of <paramref name="values"/></param>
         /// <param name="values">Target <see cref="Vector"/></param>
         /// <param name="begin">Root position</param>
         /// <param name="count">Length of <paramref name="values"/></param>
@@ -790,7 +789,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         }
 
         /// <summary>
-        /// Sort the given integers in a decreasing fashion using heapsort algorithm 
+        /// Sort the given integers in a decreasing fashion using heapsort algorithm
         /// </summary>
         /// <param name="values">Array of values to sort</param>
         /// <param name="count">Length of <paramref name="values"/></param>

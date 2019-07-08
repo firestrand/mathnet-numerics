@@ -2,7 +2,6 @@
 // Math.NET Numerics, part of the Math.NET Project
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
-// http://mathnetnumerics.codeplex.com
 //
 // Copyright (c) 2009-2013 Math.NET
 //
@@ -39,7 +38,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
     /// A simple milu(0) preconditioner.
     /// </summary>
     /// <remarks>
-    /// Original Fortran code by Youcef Saad (07 January 2004)
+    /// Original Fortran code by Yousef Saad (07 January 2004)
     /// </remarks>
     public sealed class MILU0Preconditioner : IPreconditioner<float>
     {
@@ -85,14 +84,14 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             var csr = matrix.Storage as SparseCompressedRowMatrixStorage<float>;
             if (csr == null)
             {
-                throw new ArgumentException("Matrix must be in sparse storage format", "matrix");
+                throw new ArgumentException(Resources.MatrixMustBeSparse, nameof(matrix));
             }
 
             // Dimension of matrix
             int n = csr.RowCount;
             if (n != csr.ColumnCount)
             {
-                throw new ArgumentException(Resources.ArgumentMatrixSquare, "matrix");
+                throw new ArgumentException(Resources.ArgumentMatrixSquare, nameof(matrix));
             }
 
             // Original matrix compressed sparse row storage.
@@ -107,7 +106,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
             int code = Compute(n, a, ja, ia, _alu, _jlu, _diag, UseModified);
             if (code > -1)
             {
-                throw new Exception("Zero pivot encountered on row " + code + " during ILU process");
+                throw new NumericalBreakdownException("Zero pivot encountered on row " + code + " during ILU process");
             }
 
             IsInitialized = true;
@@ -163,6 +162,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single.Solvers
         /// <param name="alu">Matrix values in MSR format (output).</param>
         /// <param name="jlu">Row pointers and column indices (output).</param>
         /// <param name="ju">Pointer to diagonal elements (output).</param>
+        /// <param name="modified">True if the modified/MILU algorithm should be used (recommended)</param>
         /// <returns>Returns 0 on success or k > 0 if a zero pivot was encountered at step k.</returns>
         private int Compute(int n, float[] a, int[] ja, int[] ia, float[] alu, int[] jlu, int[] ju, bool modified)
         {
